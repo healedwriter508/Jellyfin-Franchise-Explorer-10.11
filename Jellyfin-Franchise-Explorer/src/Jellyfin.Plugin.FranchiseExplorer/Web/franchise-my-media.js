@@ -1958,11 +1958,28 @@
       // shortcut listener. Keep Home visible and report the problem instead
       // of silently navigating through the item's Details page.
       const pathname=location.pathname,hash=location.hash;
-      setTimeout(()=>{
-        const latest=localIntent(localCredentials());
-        if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return;
-        const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
-        if(playing)return;
+      setTimeout(async()=>{
+        const shouldAbort=()=>{
+          const latest=localIntent(localCredentials());
+          if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return true;
+          if(document.hidden)return true;
+          const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
+          return playing;
+        };
+        if(shouldAbort())return;
+        try{
+          const serverPlaying=async()=>{
+            const auth=localCredentials();
+            if(!auth?.UserId)return false;
+            const sessions=await api('/Sessions?ControllableByUserId='+encodeURIComponent(auth.UserId),auth);
+            return (sessions||[]).some(s=>itemMatch(s.UserId,auth.UserId)&&itemMatch(s.NowPlayingItem?.Id,id));
+          };
+          if(await serverPlaying())return;
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          if(shouldAbort())return;
+          if(await serverPlaying())return;
+        }catch(_){}
+        if(shouldAbort())return;
         console.warn('Franchise Explorer: the native Jellyfin shortcut did not start video playback.');
         showLocalNotice('Could not start this item directly. Stay on Home and retry, or use Details if you prefer to inspect the title. The chronological timeline was not advanced.',13000);
       },12000);

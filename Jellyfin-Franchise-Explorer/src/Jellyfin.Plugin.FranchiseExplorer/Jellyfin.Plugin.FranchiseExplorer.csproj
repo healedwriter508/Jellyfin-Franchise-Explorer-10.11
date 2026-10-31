@@ -3,10 +3,10 @@
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.FranchiseExplorer</RootNamespace>
     <AssemblyName>Jellyfin.Plugin.FranchiseExplorer</AssemblyName>
-    <Version>0.8.9.1016</Version>
-    <AssemblyVersion>0.8.9.1016</AssemblyVersion>
-    <FileVersion>0.8.9.1016</FileVersion>
-    <InformationalVersion>0.8.9.16-port.10.11</InformationalVersion>
+    <Version>0.8.9.1017</Version>
+    <AssemblyVersion>0.8.9.1017</AssemblyVersion>
+    <FileVersion>0.8.9.1017</FileVersion>
+    <InformationalVersion>0.8.9.17-port.10.11</InformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
