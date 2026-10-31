@@ -12,7 +12,7 @@ with tempfile.TemporaryDirectory() as td:
     subprocess.run([sys.executable,str(root/'scripts/publish_manifest.py'),'--version','0.6.2.0','--archive',str(z),'--repository','Gost1o1/Jellyfin-Franchise-Explorer'],cwd=d,check=True)
     obj=json.loads((d/'manifest.json').read_text())
     assert obj[0]['versions'][0]['checksum']==hashlib.md5(z.read_bytes()).hexdigest()
-    assert obj[0]['versions'][0]['targetAbi']=='12.0.0.0'
+    assert obj[0]['versions'][0]['targetAbi']=='10.11.0.0'
     assert obj[0]['versions'][0]['sourceUrl'].endswith(z.name)
     subprocess.run([sys.executable,str(root/'scripts/publish_manifest.py'),'--version','0.6.2.0','--archive',str(z),'--repository','Gost1o1/Jellyfin-Franchise-Explorer'],cwd=d,check=True)
     obj=json.loads((d/'manifest.json').read_text())

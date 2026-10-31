@@ -17,23 +17,216 @@
 
   const TILE_ID = 'franchise-explorer-my-media-tile';
   const STYLE_ID = 'franchise-explorer-my-media-style';
+  const SAFE_GUID = /^[a-f\d]{32}$|^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
+  const IMAGE_KEYS = { Primary: 'primaryUrl', Backdrop: 'backdropUrl', Logo: 'logoUrl', Thumb: 'thumbUrl', Banner: 'bannerUrl' };
   let queued = false;
   let observedCard = null;
   let observedResize = null;
   let activeSettingsMenu = null;
+  // Module-level promise cache so re-renders and navigation do not refetch the collage.
+  let collagePromise = null;
+
+  function basePrefix() {
+    const pathname = window.location.pathname || '';
+    const match = pathname.match(/^(.*?)\/web(?:\/|$)/i);
+    return match ? match[1] : '';
+  }
 
   function browseUrl() {
     // Keep Jellyfin base-path prefixes (e.g. /jellyfin/web/index.html).
-    const pathname = window.location.pathname || '';
-    const match = pathname.match(/^(.*?)\/web(?:\/|$)/i);
-    const base = match ? match[1] : '';
-    return `${base}/FranchiseExplorer/Browse`;
+    return `${basePrefix()}/FranchiseExplorer/Browse`;
   }
 
   function settingsUrl() {
-    const match = (window.location.pathname || '').match(/^(.*?)\/web(?:\/|$)/i);
-    const base = match ? match[1] : '';
-    return base + '/web/index.html#/configurationpage?name=Franchise%20Explorer';
+    return basePrefix() + '/web/index.html#/configurationpage?name=Franchise%20Explorer';
+  }
+
+  function safeGuid(value) {
+    return SAFE_GUID.test(String(value || ''));
+  }
+
+  function lowerKeys(value) {
+    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.map(lowerKeys);
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k[0].toLowerCase() + k.slice(1)] = lowerKeys(v);
+    }
+    return out;
+  }
+
+  function getTileAuth() {
+    const ac = typeof window !== 'undefined' ? window.ApiClient : null;
+    let token = '';
+    let userId = '';
+    let serverAddress = '';
+    let serverId = '';
+    if (ac) {
+      try { if (typeof ac.accessToken === 'function') token = ac.accessToken() || ''; } catch (_) {}
+      try { if (typeof ac.getCurrentUserId === 'function') userId = ac.getCurrentUserId() || ''; } catch (_) {}
+      try { if (typeof ac.serverAddress === 'function') serverAddress = ac.serverAddress() || ''; } catch (_) {}
+      try { if (typeof ac.serverId === 'function') serverId = ac.serverId() || ''; } catch (_) {}
+      if (!token && ac._serverInfo?.AccessToken) token = ac._serverInfo.AccessToken;
+      if (!userId && ac._serverInfo?.UserId) userId = ac._serverInfo.UserId;
+      if (!serverAddress && ac._serverAddress) serverAddress = ac._serverAddress;
+    }
+    if (!token || !userId) {
+      try {
+        const servers = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}').Servers || [];
+        const matches = servers.filter(s => s && s.AccessToken && s.UserId);
+        const chosen = matches.find(s => (serverId && s.Id === serverId) || ['ManualAddress', 'LocalAddress', 'RemoteAddress', 'LastConnectionAddress'].some(k => {
+          try { return s[k] && new URL(s[k]).origin === window.location.origin; } catch (_) { return false; }
+        })) || (matches.length === 1 ? matches[0] : null);
+        if (chosen) {
+          if (!token) token = chosen.AccessToken || '';
+          if (!userId) userId = chosen.UserId || '';
+          if (!serverAddress) serverAddress = chosen.ManualAddress || chosen.LocalAddress || chosen.RemoteAddress || chosen.LastConnectionAddress || '';
+        }
+      } catch (_) {}
+    }
+    return token ? { token, userId, serverAddress } : null;
+  }
+
+  function resolveApiUrl(path, auth) {
+    if (!path) return '';
+    const prefix = basePrefix();
+    let clean = String(path).trim();
+    if (prefix && clean.startsWith(prefix + '/')) {
+      clean = clean.slice(prefix.length);
+    }
+    const rel = clean.replace(/^\/+/, '');
+    const ac = typeof window !== 'undefined' ? window.ApiClient : null;
+    if (ac && typeof ac.getUrl === 'function') {
+      try {
+        const u = ac.getUrl(rel);
+        if (u) return u;
+      } catch (_) {}
+    }
+    const addr = (ac && typeof ac.serverAddress === 'function' ? ac.serverAddress() : '') ||
+      ((window.location.protocol !== 'http:' && window.location.protocol !== 'https:' && auth?.serverAddress) ? auth.serverAddress : '');
+    if (addr) {
+      return String(addr).replace(/\/+$/, '') + '/' + rel;
+    }
+    return `${prefix}/${rel}`;
+  }
+
+  function authHeaders(auth) {
+    return { Authorization: 'MediaBrowser Token="' + auth.token + '"' };
+  }
+
+  async function secureImage(path, auth, blobCache) {
+    if (!path || !auth?.token) return '';
+    let raw = String(path).trim();
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw);
+        const base = new URL(resolveApiUrl('/', auth) || '/', window.location.href);
+        if (u.origin !== window.location.origin && u.origin !== base.origin) return '';
+        raw = u.pathname + u.search;
+      } catch (_) {
+        return '';
+      }
+    }
+    const prefix = basePrefix();
+    let route = (prefix && raw.startsWith(prefix + '/')) ? raw.slice(prefix.length) : raw;
+    route = route.startsWith('/') ? route : '/' + route;
+    if (!/^\/(FranchiseExplorer\/Artwork\/|Items\/)/i.test(route)) return '';
+    const key = resolveApiUrl(route, auth);
+    if (!key) return '';
+    if (!blobCache.has(key)) {
+      const load = fetch(key, { headers: authHeaders(auth) })
+        .then(r => { if (!r.ok) throw new Error('no image'); return r.blob(); })
+        .then(blob => (blob && blob.type && blob.type.startsWith('image/')) ? URL.createObjectURL(blob) : '')
+        .catch(() => '');
+      blobCache.set(key, load);
+    }
+    return await blobCache.get(key);
+  }
+
+  function imagePath(item, type) {
+    const id = item && (item.Id || item.id);
+    if (!safeGuid(id)) return '';
+    const backdrops = item.BackdropImageTags || item.backdropImageTags;
+    if (type === 'Backdrop' && Array.isArray(backdrops) && backdrops.length) {
+      return '/Items/' + id + '/Images/Backdrop/0?maxWidth=1100';
+    }
+    const tags = item.ImageTags || item.imageTags || {};
+    const hasTag = tags[type] || tags[type[0].toLowerCase() + type.slice(1)] || (type === 'Primary' && (item.PrimaryImageTag || item.primaryImageTag));
+    if (!hasTag) return '';
+    return '/Items/' + id + '/Images/' + type + '?maxWidth=' + (type === 'Primary' ? '420' : '1100');
+  }
+
+  async function fetchCollagePosters(auth) {
+    const catalogUrl = resolveApiUrl('/FranchiseExplorer/Catalog', auth);
+    if (!catalogUrl) return [];
+    const response = await fetch(catalogUrl, { headers: authHeaders(auth), cache: 'no-store' });
+    if (!response.ok) return [];
+    const catalog = lowerKeys(await response.json());
+    if (!catalog || !Array.isArray(catalog.nodes)) return [];
+    const nodes = catalog.nodes.filter(n => n && safeGuid(n.id));
+    const allLinks = Array.isArray(catalog.links)
+      ? catalog.links.filter(l => l && safeGuid(l.nodeId) && safeGuid(l.itemId))
+      : [];
+    const itemCache = new Map();
+    const blobCache = new Map();
+    const getItem = async id => {
+      if (!safeGuid(id)) return null;
+      const key = String(id).toLowerCase();
+      if (!itemCache.has(key)) {
+        const query = auth.userId ? '?userId=' + encodeURIComponent(auth.userId) : '';
+        const url = resolveApiUrl('/Items/' + encodeURIComponent(key) + query, auth);
+        const promise = fetch(url, { headers: authHeaders(auth), cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+          .then(x => (x && safeGuid(x.Id || x.id)) ? x : null)
+          .catch(() => null);
+        itemCache.set(key, promise);
+      }
+      return await itemCache.get(key);
+    };
+    const nodeById = id => nodes.find(n => String(n.id).toLowerCase() === String(id || '').toLowerCase()) || null;
+    const links = id => allLinks.filter(l => String(l.nodeId).toLowerCase() === String(id || '').toLowerCase());
+    const compare = (a, b) => (+a.sortOrder || +a.position || 0) - (+b.sortOrder || +b.position || 0) ||
+      String(a.name || a.title || '').localeCompare(String(b.name || b.title || ''));
+    const nodeArtwork = async (n, kind = 'Primary', seen = new Set()) => {
+      if (!n) return '';
+      const nid = String(n.id).toLowerCase();
+      if (seen.has(nid)) return '';
+      seen.add(nid);
+      const own = (n.artwork || {})[IMAGE_KEYS[kind]] || '';
+      const custom = await secureImage(own, auth, blobCache);
+      if (custom) return custom;
+      if (safeGuid(n.collectionId)) {
+        const collection = await getItem(n.collectionId);
+        const inherited = await secureImage(imagePath(collection, kind), auth, blobCache);
+        if (inherited) return inherited;
+      }
+      if (n.parentId) {
+        const parentArt = await nodeArtwork(nodeById(n.parentId), kind, seen);
+        if (parentArt) return parentArt;
+      }
+      for (const link of links(n.id).slice(0, 5)) {
+        const item = await getItem(link.itemId);
+        const art = await secureImage(imagePath(item, kind), auth, blobCache);
+        if (art) return art;
+      }
+      return '';
+    };
+    const topNodes = nodes.filter(n => !String(n.parentId || '').trim()).sort(compare);
+    const posters = [];
+    for (const node of topNodes) {
+      if (posters.length >= 6) break;
+      const artUrl = await nodeArtwork(node, 'Primary');
+      if (artUrl) posters.push(artUrl);
+    }
+    return posters;
+  }
+
+  function getCollagePosters() {
+    if (collagePromise) return collagePromise;
+    const auth = getTileAuth();
+    if (!auth) return Promise.resolve([]);
+    collagePromise = fetchCollagePosters(auth).catch(() => []);
+    return collagePromise;
   }
 
   function ensureStyle() {
@@ -62,8 +255,36 @@
         background:rgba(2,12,19,.27);backdrop-filter:blur(2px);
         pointer-events:none;
       }
+      #${TILE_ID} .fe-tile-collage {
+        position:absolute;inset:0;z-index:0;
+        display:grid;width:100%;height:100%;
+        gap:2px;background:#08131b;
+        overflow:hidden;box-sizing:border-box;
+        align-content:center;justify-content:center;
+        pointer-events:none;
+      }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-1 { grid-template-columns:minmax(0,1fr); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-rows-1 { grid-template-rows:minmax(0,1fr); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-rows-2 { grid-template-rows:repeat(2,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-poster-cell {
+        position:relative;width:100%;height:100%;
+        min-width:0;min-height:0;aspect-ratio:2 / 3;
+        overflow:hidden;background:#0d1f2b;display:block;
+      }
+      #${TILE_ID} .fe-tile-poster {
+        width:100%;height:100%;aspect-ratio:2 / 3;
+        object-fit:cover;object-position:center top;
+        display:block;border:0;margin:0;padding:0;
+      }
+      #${TILE_ID} .fe-tile-collage-overlay {
+        position:absolute;inset:0;z-index:1;
+        background:linear-gradient(180deg,rgba(2,10,16,.18) 0%,rgba(2,10,16,.48) 52%,rgba(0,7,13,.88) 100%);
+        pointer-events:none;
+      }
       #${TILE_ID} .fe-tile-art-title {
-        display:block!important;position:absolute;z-index:1;
+        display:block!important;position:absolute;z-index:2;
         left:7px;right:7px;top:50%;bottom:auto;transform:translateY(-50%);
         margin:0!important;padding:0!important;text-align:center;color:white;
         font:bold clamp(18px,1.75vw,30px)/1.2 Arial,sans-serif;
@@ -191,6 +412,98 @@
     }
   }
 
+  function applyFallbackArt(art) {
+    if (!art) return;
+    art.classList.remove('fe-collage-art');
+    art.querySelector('.fe-tile-collage')?.remove();
+    art.querySelector('.fe-tile-collage-overlay')?.remove();
+    if (TILE_ART_DATA.startsWith('data:image/')) {
+      art.classList.add('fe-cinematic-art');
+      art.style.backgroundImage='linear-gradient(0deg,rgba(0,9,17,.7),transparent 68%),url("'+TILE_ART_DATA+'")';
+      art.querySelector('.fe-tile-icon')?.remove();
+    } else {
+      art.classList.remove('fe-cinematic-art');
+      art.style.backgroundImage = '';
+      if (!art.querySelector('.fe-tile-icon')) {
+        const icon = document.createElement('span');
+        icon.className = 'fe-tile-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = 'F';
+        art.prepend(icon);
+      }
+    }
+  }
+
+  function renderCollageArt(art, posters) {
+    if (!art || !Array.isArray(posters) || !posters.length) {
+      applyFallbackArt(art);
+      return;
+    }
+    const items = posters.slice(0, 6);
+    art.classList.remove('fe-cinematic-art');
+    art.classList.add('fe-collage-art');
+    art.style.backgroundImage = 'none';
+    art.querySelector('.fe-tile-icon')?.remove();
+    art.querySelector('.fe-tile-collage')?.remove();
+    art.querySelector('.fe-tile-collage-overlay')?.remove();
+
+    const grid = document.createElement('span');
+    const updateLayout = () => {
+      const count = grid.querySelectorAll('.fe-tile-poster-cell').length;
+      if (!count) {
+        applyFallbackArt(art);
+        return;
+      }
+      const cols = count === 1 ? 1 : (count <= 3 ? count : 3);
+      const rows = count <= 3 ? 1 : 2;
+      grid.className = `fe-tile-collage fe-collage-count-${count} fe-collage-cols-${cols} fe-collage-rows-${rows}`;
+      grid.setAttribute('data-poster-count', String(count));
+    };
+
+    for (const src of items) {
+      const cell = document.createElement('span');
+      cell.className = 'fe-tile-poster-cell';
+      const img = document.createElement('img');
+      img.className = 'fe-tile-poster';
+      img.alt = '';
+      img.decoding = 'async';
+      img.addEventListener('error', () => {
+        cell.remove();
+        updateLayout();
+      });
+      img.src = src;
+      cell.appendChild(img);
+      grid.appendChild(cell);
+    }
+
+    const overlay = document.createElement('span');
+    overlay.className = 'fe-tile-collage-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+
+    updateLayout();
+    art.prepend(grid, overlay);
+  }
+
+  function decorateTileWithCollage(art) {
+    if (!art || art.dataset.feCollagePending === '1' || art.dataset.feCollageApplied) return;
+    if (!getTileAuth() && !collagePromise) return;
+    art.dataset.feCollagePending = '1';
+    void getCollagePosters().then(posters => {
+      art.dataset.feCollagePending = '0';
+      if (Array.isArray(posters) && posters.length) {
+        art.dataset.feCollageApplied = '1';
+        renderCollageArt(art, posters);
+      } else {
+        art.dataset.feCollageApplied = 'fallback';
+        applyFallbackArt(art);
+      }
+    }).catch(() => {
+      art.dataset.feCollagePending = '0';
+      art.dataset.feCollageApplied = 'fallback';
+      applyFallbackArt(art);
+    });
+  }
+
   function makeTile(reference) {
     // Clone the genuine Jellyfin library card (prefer Collections, otherwise
     // Movies/Shows) so native theme card sizing, spacing, and aspect ratio apply
@@ -220,11 +533,7 @@
     const imageHost=(tile.querySelector('.cardImageContainer')||tile.querySelector('.poster')||tile.querySelector('.cardImage')||tile.querySelector('.cardScalable'));
     const art=document.createElement('span');art.className='fe-tile-art';
     art.innerHTML='<span class="fe-tile-icon" aria-hidden="true">F</span><span class="fe-tile-art-title">Franchises</span>';
-    if (TILE_ART_DATA.startsWith('data:image/')) {
-      art.classList.add('fe-cinematic-art');
-      art.style.backgroundImage='linear-gradient(0deg,rgba(0,9,17,.7),transparent 68%),url("'+TILE_ART_DATA+'")';
-      art.querySelector('.fe-tile-icon')?.remove();
-    }
+    applyFallbackArt(art);
     if(imageHost){
       // Remove cloned Collections artwork and its inline background image,
       // but preserve native Jellyfin sizing scaffolding around this host.
@@ -238,9 +547,10 @@
     }
     // Remove any stale native title labels (including theme-specific plain spans).
     for(const child of tile.querySelectorAll('span')){
-      if(child!==imageHost && !imageHost?.contains(child) && child.childElementCount===0 &&
+      if(child!==imageHost && !imageHost?.contains(child) && child!==art && !art.contains(child) && child.childElementCount===0 &&
         (child.textContent||'').trim() === (reference.getAttribute('title')||'Collections'))child.remove();
     }
+    decorateTileWithCollage(art);
     const label=tile.querySelector('.cardText-first,.cardText-primary,.cardText,.libraryName');
     if(label && !imageHost?.contains(label)){
       label.textContent='Franchises';
@@ -339,6 +649,7 @@
     }
     tile.setAttribute('href',browseUrl());
     tile.setAttribute('data-fe-version','0.8.9.15');
+    decorateTileWithCollage(tile.querySelector('.fe-tile-art'));
   }
 
   function schedule() {
@@ -1188,7 +1499,7 @@
   const MAX_ATTEMPTS=36;
   function params(){
     const hash=location.hash||'';
-    if(!/^#\/?details\?/i.test(hash))return null;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(hash))return null;
     const query=hash.slice(hash.indexOf('?')+1);
     const p=new URLSearchParams(query);
     if(p.get('feAutoPlay')!=='1'||!/^[a-f0-9-]{32,36}$/i.test(p.get('id')||''))return null;
@@ -1225,7 +1536,7 @@
     try{
       const all=JSON.parse(localStorage.getItem('jellyfin_credentials')||'{}').Servers||[];
       return all.find(x=>x.UserId&&x.AccessToken&&
-        [x.ManualAddress,x.LocalAddress,x.RemoteAddress].some(a=>{
+        [x.ManualAddress,x.LocalAddress,x.RemoteAddress,x.LastConnectionAddress].some(a=>{
           try{return new URL(a).origin===location.origin;}catch(_){return false;}
         }))||(all.length===1?all[0]:null);
     }catch(_){return null;}
@@ -1249,7 +1560,7 @@
     return path.startsWith('/FranchiseExplorer/TimelineState')?timelineResponse(value):value;
   }
   function itemMatch(a,b){return String(a||'').replace(/-/g,'').toLowerCase()===String(b||'').replace(/-/g,'').toLowerCase();}
-  function deviceId(){return localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
+  function deviceId(){return (typeof window!=='undefined'&&typeof window.ApiClient?.deviceId==='function'&&window.ApiClient.deviceId())||localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
   const playbackReturnKey='fe-return-after-player-v1';
   function readPlaybackReturn(){
     try{
@@ -1266,7 +1577,7 @@
       const root=((location.pathname||'').match(/^(.*?)\/web(?:\/|$)/i)||[])[1]||'';
       const fallback=origin+root+'/web/#/home';
       const url=new URL(source||location.href,location.href);
-      const isPlayerOrDetails=/^#\/(?:details|video|playback)(?:\?|\/|$)/i.test(url.hash);
+      const isPlayerOrDetails=/^#!?\/?(?:details|video|playback)(?:\.html)?(?:\?|\/|$)/i.test(url.hash);
       sessionStorage.setItem(playbackReturnKey,JSON.stringify({version:1,id,
         returnUrl:url.origin===origin&&!isPlayerOrDetails?url.href:fallback,
         userId:String(auth?.UserId||'').toLowerCase(),created:Date.now(),startedAt:0}));
@@ -1293,14 +1604,14 @@
     const marker=readPlaybackReturn();if(!marker?.startedAt)return;
     const auth=localCredentials();
     if(marker.userId!==String(auth?.UserId||'').toLowerCase())return;
-    if(!/^#\/?details\?/i.test(location.hash||''))return;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
     const route=new URLSearchParams(location.hash.split('?')[1]||'');
     if(route.get('feAutoPlay')==='1'||!itemMatch(route.get('id'),marker.id))return;
     returning=true;
     setTimeout(()=>{
       returning=false;
       const current=readPlaybackReturn();
-      if(!current?.startedAt||current.id!==marker.id||!/^#\/?details\?/i.test(location.hash||''))return;
+      if(!current?.startedAt||current.id!==marker.id||!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
       const visibleVideo=[...document.querySelectorAll('video')].some(v=>!v.paused&&!v.ended&&v.getClientRects().length);
       if(visibleVideo)return;
       try{
@@ -1600,7 +1911,7 @@
     version:'0.8.9.15',
     play(id,options={}){
       if(!/^[a-f0-9-]{32,36}$/i.test(id))return false;
-      const container=document.querySelector('.homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
+      const container=document.querySelector('#homeTab:not(.hide) .itemsContainer, .tabContent.is-active .itemsContainer, .homeSectionsContainer .itemsContainer:not(.hide), .homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
       if(!container)return false;
       const wrapper=document.createElement('div');
       // Jellyfin shortcuts.onClick looks up the nearest `.itemAction` from
@@ -1647,11 +1958,28 @@
       // shortcut listener. Keep Home visible and report the problem instead
       // of silently navigating through the item's Details page.
       const pathname=location.pathname,hash=location.hash;
-      setTimeout(()=>{
-        const latest=localIntent(localCredentials());
-        if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return;
-        const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
-        if(playing)return;
+      setTimeout(async()=>{
+        const shouldAbort=()=>{
+          const latest=localIntent(localCredentials());
+          if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return true;
+          if(document.hidden)return true;
+          const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
+          return playing;
+        };
+        if(shouldAbort())return;
+        try{
+          const serverPlaying=async()=>{
+            const auth=localCredentials();
+            if(!auth?.UserId)return false;
+            const sessions=await api('/Sessions?ControllableByUserId='+encodeURIComponent(auth.UserId),auth);
+            return (sessions||[]).some(s=>itemMatch(s.UserId,auth.UserId)&&itemMatch(s.NowPlayingItem?.Id,id));
+          };
+          if(await serverPlaying())return;
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          if(shouldAbort())return;
+          if(await serverPlaying())return;
+        }catch(_){}
+        if(shouldAbort())return;
         console.warn('Franchise Explorer: the native Jellyfin shortcut did not start video playback.');
         showLocalNotice('Could not start this item directly. Stay on Home and retry, or use Details if you prefer to inspect the title. The chronological timeline was not advanced.',13000);
       },12000);
@@ -1680,10 +2008,10 @@
       showLocalNotice('The next chronological item could not start directly. You are still on Jellyfin Home; use Resume Watch Order to retry.',13000);
       return;
     }
-    if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+    if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
       // A closing Jellyfin player can briefly restore the previous details
       // route. Only move to Home for OUR pending, expiring playback request.
-      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#\/?details\?/i.test(location.hash||'')){
+      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#!?\/?details(?:\.html)?\?/i.test(location.hash||'')){
         nextHomeRecoveryAt=Date.now();
         location.replace(location.origin+location.pathname+location.search+'#/home');
       }
@@ -1802,7 +2130,7 @@
         homeOnly:true,type:Number(state.queueEpisodes?.[index])>0?'Episode':'Movie',
         returnUrl,subtitleEnabled:!!owner.subtitleEnabled}));
       lastFollowKey=key; // Only mark queued after the new intent can be recovered.
-      if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+      if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
         if(location.protocol==='http:'||location.protocol==='https:')location.assign(homeUrl);
         else location.hash='#/home'; // about:blank offline browser regression harness
       }

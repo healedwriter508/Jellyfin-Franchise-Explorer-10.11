@@ -7,7 +7,7 @@
   const guid = v => /^[a-f\d]{32}$|^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(String(v || ''));
   const n = value => Math.max(0, Number.parseInt(value,10) || 0);
   const esc = v => String(v || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  // The Jellyfin 12.2 API host can return PascalCase even when plugin JSON
+  // The Jellyfin 10.11 / 12.x API host can return PascalCase even when plugin JSON
   // storage uses camelCase. Normalize either shape before reading progress.
   const timelineResponse = raw => {
     const record = value => {
