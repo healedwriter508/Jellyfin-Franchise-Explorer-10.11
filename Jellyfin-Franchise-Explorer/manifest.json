@@ -12,8 +12,8 @@
         "changelog": "https://github.com/healedwriter508/Jellyfin-Franchise-Explorer-10.11/releases/tag/v0.8.9.1015",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/healedwriter508/Jellyfin-Franchise-Explorer-10.11/releases/download/v0.8.9.1015/franchise-explorer_0.8.9.1015.zip",
-        "checksum": "00000000000000000000000000000000",
-        "timestamp": "2026-10-31T17:30:00Z"
+        "checksum": "127b5fa150f6995aae1d088377f1de5f",
+        "timestamp": "2026-10-31T18:14:17Z"
       }
     ]
   }
