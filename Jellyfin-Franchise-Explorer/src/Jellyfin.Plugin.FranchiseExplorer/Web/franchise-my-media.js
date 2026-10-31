@@ -1188,7 +1188,7 @@
   const MAX_ATTEMPTS=36;
   function params(){
     const hash=location.hash||'';
-    if(!/^#\/?details\?/i.test(hash))return null;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(hash))return null;
     const query=hash.slice(hash.indexOf('?')+1);
     const p=new URLSearchParams(query);
     if(p.get('feAutoPlay')!=='1'||!/^[a-f0-9-]{32,36}$/i.test(p.get('id')||''))return null;
@@ -1225,7 +1225,7 @@
     try{
       const all=JSON.parse(localStorage.getItem('jellyfin_credentials')||'{}').Servers||[];
       return all.find(x=>x.UserId&&x.AccessToken&&
-        [x.ManualAddress,x.LocalAddress,x.RemoteAddress].some(a=>{
+        [x.ManualAddress,x.LocalAddress,x.RemoteAddress,x.LastConnectionAddress].some(a=>{
           try{return new URL(a).origin===location.origin;}catch(_){return false;}
         }))||(all.length===1?all[0]:null);
     }catch(_){return null;}
@@ -1249,7 +1249,7 @@
     return path.startsWith('/FranchiseExplorer/TimelineState')?timelineResponse(value):value;
   }
   function itemMatch(a,b){return String(a||'').replace(/-/g,'').toLowerCase()===String(b||'').replace(/-/g,'').toLowerCase();}
-  function deviceId(){return localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
+  function deviceId(){return (typeof window!=='undefined'&&typeof window.ApiClient?.deviceId==='function'&&window.ApiClient.deviceId())||localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
   const playbackReturnKey='fe-return-after-player-v1';
   function readPlaybackReturn(){
     try{
@@ -1266,7 +1266,7 @@
       const root=((location.pathname||'').match(/^(.*?)\/web(?:\/|$)/i)||[])[1]||'';
       const fallback=origin+root+'/web/#/home';
       const url=new URL(source||location.href,location.href);
-      const isPlayerOrDetails=/^#\/(?:details|video|playback)(?:\?|\/|$)/i.test(url.hash);
+      const isPlayerOrDetails=/^#!?\/?(?:details|video|playback)(?:\.html)?(?:\?|\/|$)/i.test(url.hash);
       sessionStorage.setItem(playbackReturnKey,JSON.stringify({version:1,id,
         returnUrl:url.origin===origin&&!isPlayerOrDetails?url.href:fallback,
         userId:String(auth?.UserId||'').toLowerCase(),created:Date.now(),startedAt:0}));
@@ -1293,14 +1293,14 @@
     const marker=readPlaybackReturn();if(!marker?.startedAt)return;
     const auth=localCredentials();
     if(marker.userId!==String(auth?.UserId||'').toLowerCase())return;
-    if(!/^#\/?details\?/i.test(location.hash||''))return;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
     const route=new URLSearchParams(location.hash.split('?')[1]||'');
     if(route.get('feAutoPlay')==='1'||!itemMatch(route.get('id'),marker.id))return;
     returning=true;
     setTimeout(()=>{
       returning=false;
       const current=readPlaybackReturn();
-      if(!current?.startedAt||current.id!==marker.id||!/^#\/?details\?/i.test(location.hash||''))return;
+      if(!current?.startedAt||current.id!==marker.id||!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
       const visibleVideo=[...document.querySelectorAll('video')].some(v=>!v.paused&&!v.ended&&v.getClientRects().length);
       if(visibleVideo)return;
       try{
@@ -1600,7 +1600,7 @@
     version:'0.8.9.15',
     play(id,options={}){
       if(!/^[a-f0-9-]{32,36}$/i.test(id))return false;
-      const container=document.querySelector('.homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
+      const container=document.querySelector('#homeTab:not(.hide) .itemsContainer, .tabContent.is-active .itemsContainer, .homeSectionsContainer .itemsContainer:not(.hide), .homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
       if(!container)return false;
       const wrapper=document.createElement('div');
       // Jellyfin shortcuts.onClick looks up the nearest `.itemAction` from
@@ -1680,10 +1680,10 @@
       showLocalNotice('The next chronological item could not start directly. You are still on Jellyfin Home; use Resume Watch Order to retry.',13000);
       return;
     }
-    if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+    if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
       // A closing Jellyfin player can briefly restore the previous details
       // route. Only move to Home for OUR pending, expiring playback request.
-      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#\/?details\?/i.test(location.hash||'')){
+      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#!?\/?details(?:\.html)?\?/i.test(location.hash||'')){
         nextHomeRecoveryAt=Date.now();
         location.replace(location.origin+location.pathname+location.search+'#/home');
       }
@@ -1802,7 +1802,7 @@
         homeOnly:true,type:Number(state.queueEpisodes?.[index])>0?'Episode':'Movie',
         returnUrl,subtitleEnabled:!!owner.subtitleEnabled}));
       lastFollowKey=key; // Only mark queued after the new intent can be recovered.
-      if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+      if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
         if(location.protocol==='http:'||location.protocol==='https:')location.assign(homeUrl);
         else location.hash='#/home'; // about:blank offline browser regression harness
       }

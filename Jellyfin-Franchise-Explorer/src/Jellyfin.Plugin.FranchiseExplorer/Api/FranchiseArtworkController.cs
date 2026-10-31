@@ -79,6 +79,7 @@ public sealed class FranchiseArtworkController : ControllerBase
     /// <summary>Upload a PNG, JPEG, or WebP file to the plugin-owned artwork directory.</summary>
     [HttpPost("{nodeId:guid}/{slot}")]
     [Authorize(Policy = Policies.RequiresElevation)]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxImageBytes + 1024 * 1024)]
     public async Task<IActionResult> Upload(Guid nodeId, string slot, IFormFile file, CancellationToken cancellationToken)
     {

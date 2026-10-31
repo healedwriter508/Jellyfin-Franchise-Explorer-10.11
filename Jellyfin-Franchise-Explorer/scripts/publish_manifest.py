@@ -22,10 +22,10 @@ if not isinstance(manifest,list):sys.exit('Manifest must be a JSON array')
 guid='6bc7820b-7c6d-4e64-a139-dfb90b8d6f42'
 entry=next((v for v in manifest if v.get('guid')==guid),None)
 if entry is None:
-    entry={'guid':guid,'name':'Franchise Explorer','overview':'Experimental virtual franchise groups for Jellyfin 12.x (use caution).', 'description':'Unfinished experimental plugin. Virtual franchise hierarchies and item-ID references; no native category or media manipulation.','owner':'Gost1o1','category':'General','versions':[]}
+    entry={'guid':guid,'name':'Franchise Explorer','overview':'Unofficial port of experimental virtual franchise groups for Jellyfin 10.11.x (use caution).', 'description':'Unofficial Jellyfin 10.11.11 port of Franchise Explorer by Gost1o1. Virtual franchise hierarchies and item-ID references; no native category or media manipulation.','owner':'healedwriter508 (port of Gost1o1)','category':'General','versions':[]}
     manifest.append(entry)
 versions=entry.setdefault('versions',[])
-versions[:]=[v for v in versions if not (v.get('version')==a.version and v.get('targetAbi')=='12.0.0.0')]
-versions.insert(0,{'version':a.version,'changelog':f'https://github.com/{a.repository}/releases/tag/v{a.version}', 'targetAbi':'12.0.0.0','sourceUrl':url,'checksum':checksum,'timestamp':datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')})
+versions[:]=[v for v in versions if not (v.get('version')==a.version and v.get('targetAbi')=='10.11.0.0')]
+versions.insert(0,{'version':a.version,'changelog':f'https://github.com/{a.repository}/releases/tag/v{a.version}', 'targetAbi':'10.11.0.0','sourceUrl':url,'checksum':checksum,'timestamp':datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')})
 manifest_file.write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')
 print('Manifest updated for actual release archive:',url,'MD5',checksum)

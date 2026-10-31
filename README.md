@@ -21,14 +21,18 @@
   <a href="https://github.com/Gost1o1/Jellyfin-Franchise-Explorer/actions/workflows/build.yml"><img alt="Development builds" src="https://img.shields.io/badge/Preview-Test%20Builds-325A82?logo=githubactions&logoColor=white" /></a>
 </p>
 
+## Jellyfin 10.11.11 Unofficial Port (`0.8.9.1015` / `0.8.9.15-port.10.11`)
+
+This branch/fork is an **unofficial community port** of [Gost1o1/Jellyfin-Franchise-Explorer](https://github.com/Gost1o1/Jellyfin-Franchise-Explorer) targeting **Jellyfin Server `10.11.11`** (`net9.0`, `targetAbi` `10.11.0.0`). It is **not endorsed or supported by Gost1o1**. See **[PORT_NOTES.md](PORT_NOTES.md)** for full port details, 10.11 catalog/JavaScript Injector setup (`https://raw.githubusercontent.com/healedwriter508/Jellyfin-Franchise-Explorer-10.11/main/manifest.json` and `https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json`), checksum instructions, and live-server verification notes.
+
 > [!IMPORTANT]
-> **Experimental project for Jellyfin 12.2.** Franchise Explorer is unfinished and is being tested on a personal Jellyfin server. Features and client compatibility can change. **Back up Jellyfin and your plugin data before installing or updating.** Chronological playback and automatic next-item playback are still experimental; do not assume they work in every client.
+> **Experimental project (upstream documentation for Jellyfin 12.2 below; see [PORT_NOTES.md](PORT_NOTES.md) for Jellyfin 10.11.11 differences).** Franchise Explorer is unfinished and is being tested on a personal Jellyfin server. Features and client compatibility can change. **Back up Jellyfin and your plugin data before installing or updating.** Chronological playback and automatic next-item playback are still experimental; do not assume they work in every client.
 
 ## Preview
 
 ### Franchise Explorer in action
 
-Browse a complete franchise in one place, with a chronological watch order, phases, movies, TV shows, and collections. This is a **single vertically stitched screenshot** of the current browser, captured from the three screenshots supplied for v0.8.9.15.
+Browse a complete franchise in one place, with a chronological watch order, phases, movies, TV shows, and collections. This is a **single vertically stitched screenshot** of the current browser, captured from the three screenshots supplied for v0.8.9.15 (see also the [compact overview preview](docs/franchise-explorer-preview.png)).
 
 ![Full Franchise Explorer browser showing the Marvel Cinematic Universe, chronological order, phases, movies, TV shows, and collections in one continuous screenshot](docs/screenshots/user-guide/00-franchise-explorer-full-page.png)
 

@@ -17,7 +17,7 @@ if not isinstance(manifest,list):sys.exit('Manifest must be a JSON array.')
 for item in manifest:
     if not all(k in item for k in ('guid','name','versions')):sys.exit('Invalid manifest item.')
 csproj=(project/'Jellyfin.Plugin.FranchiseExplorer.csproj').read_text(encoding='utf-8')
-for marker in ('<TargetFramework>net10.0</TargetFramework>','Version="12.2.0"','<EmbeddedResource Include="Configuration/configPage.html"'):
+for marker in ('<TargetFramework>net9.0</TargetFramework>','Version="10.11.11"','<EmbeddedResource Include="Configuration/configPage.html"'):
     if marker not in csproj:sys.exit('Expected project setting missing: '+marker)
 class Scripts(HTMLParser):
     def __init__(self):super().__init__();self.inscript=False;self.js=[]
