@@ -10,7 +10,7 @@ version = (project / "Jellyfin.Plugin.FranchiseExplorer.csproj").read_text(encod
 readme = (root.parent / "README.md").read_text(encoding="utf-8")
 
 for field in ("Version", "AssemblyVersion", "FileVersion"):
-    assert f"<{field}>0.8.9.1015</{field}>" in version, field
+    assert f"<{field}>0.8.9.1016</{field}>" in version, field
 assert 'CurrentScriptId = "jellyfin-franchise-explorer-my-media-v08915"' in cs
 assert '"jellyfin-franchise-explorer-my-media-v08914"' in cs
 assert '"jellyfin-franchise-explorer-my-media-v08913"' in cs
@@ -19,7 +19,7 @@ assert '"jellyfin-franchise-explorer-my-media-v0894"' in cs
 assert '"jellyfin-franchise-explorer-my-media-v0893"' in cs
 assert '"jellyfin-franchise-explorer-my-media-v1"' in cs
 assert '["id"] = CurrentScriptId' in cs
-assert '["pluginVersion"] = "0.8.9.1015"' in cs
+assert '["pluginVersion"] = "0.8.9.1016"' in cs
 assert 'GetMethod("UnregisterScript"' in cs
 assert cs.index('register.Invoke(null, new[] { payload })') < cs.index('unregister.Invoke(')
 assert 'if (result is not bool success || !success) return false;' in cs
