@@ -1,9 +1,10 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using MediaBrowser.Common.Api;
+using Jellyfin.Plugin.FranchiseExplorer.Web;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.FranchiseExplorer.Api;
@@ -24,15 +25,10 @@ public sealed class FranchiseBrowseController : ControllerBase
     {
         // Serving a public HTML shell is safe: it contains no configuration,
         // user data or media metadata, and its API calls still require auth.
-        var assembly = typeof(Plugin).Assembly;
-        const string resource = "Jellyfin.Plugin.FranchiseExplorer.Configuration.browsePage.html";
-        using var stream = assembly.GetManifestResourceStream(resource);
-        if (stream is null) return NotFound("Franchise browser resource is missing.");
-        using var reader = new StreamReader(stream);
-        var html = reader.ReadToEnd();
-        Response.Headers["Cache-Control"] = "no-store";
+        if (NotModified()) return StatusCode(StatusCodes.Status304NotModified);
+        var html = EmbeddedAssets.Text(EmbeddedAssets.BrowsePage);
+        if (html is null) return NotFound("Franchise browser resource is missing.");
         Response.Headers["Referrer-Policy"] = "no-referrer";
-        Response.Headers["X-Content-Type-Options"] = "nosniff";
         Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
         return Content(html, "text/html; charset=utf-8");
     }
@@ -41,13 +37,39 @@ public sealed class FranchiseBrowseController : ControllerBase
     [AllowAnonymous]
     public IActionResult TimelineClient()
     {
-        var assembly = typeof(Plugin).Assembly;
-        using var stream = assembly.GetManifestResourceStream("Jellyfin.Plugin.FranchiseExplorer.Web.franchise-timeline.js");
-        if (stream is null) return NotFound();
-        using var reader = new StreamReader(stream);
-        Response.Headers["Cache-Control"] = "no-store";
+        if (NotModified()) return StatusCode(StatusCodes.Status304NotModified);
+        var script = EmbeddedAssets.Text(EmbeddedAssets.TimelineScript);
+        if (script is null) return NotFound();
+        return Content(script, "text/javascript; charset=utf-8");
+    }
+
+    /// <summary>
+    /// Artwork for the optional My Media tile. Previously this 170 KB image was
+    /// inlined as base64 into the injected script on every Jellyfin page load;
+    /// serving it separately lets the browser cache it once per plugin version.
+    /// </summary>
+    [HttpGet("TileArt")]
+    [AllowAnonymous]
+    public IActionResult TileArt()
+    {
+        var bytes = EmbeddedAssets.Bytes(EmbeddedAssets.TileArt);
+        if (bytes is null) return NotFound();
+        Response.Headers["Cache-Control"] = "public, max-age=604800";
+        Response.Headers["ETag"] = EmbeddedAssets.ETag;
         Response.Headers["X-Content-Type-Options"] = "nosniff";
-        return Content(reader.ReadToEnd(), "text/javascript; charset=utf-8");
+        if (Request.Headers.IfNoneMatch.ToString() == EmbeddedAssets.ETag) return StatusCode(StatusCodes.Status304NotModified);
+        return File(bytes, "image/webp");
+    }
+
+    // Embedded pages change only when the plugin DLL changes. Revalidate on
+    // each load (so upgrades apply immediately) but answer with 304 when the
+    // browser already holds this exact build.
+    private bool NotModified()
+    {
+        Response.Headers["Cache-Control"] = "no-cache";
+        Response.Headers["ETag"] = EmbeddedAssets.ETag;
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Request.Headers.IfNoneMatch.ToString() == EmbeddedAssets.ETag;
     }
 
     [HttpGet("Catalog")]
@@ -64,7 +86,7 @@ public sealed class FranchiseBrowseController : ControllerBase
         // titles that a particular user isn't allowed to browse.
         return Ok(new
         {
-            version = "0.8.2.0",
+            version = EmbeddedAssets.Version,
             title = string.IsNullOrWhiteSpace(config.NavigationLabel) ? "Franchises" : config.NavigationLabel,
             nodes = config.Nodes.Select(n => new
             {

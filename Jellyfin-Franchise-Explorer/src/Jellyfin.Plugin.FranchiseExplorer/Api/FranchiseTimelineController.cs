@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,6 +24,46 @@ public sealed class FranchiseTimelineController : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly SemaphoreSlim WriteLock = new(1, 1);
+
+    // Rows per user whose saved mode is "armed" or "playing". Only those rows can
+    // react to Jellyfin playback events, so every other progress event (fired every
+    // few seconds for every active stream on the server) can skip disk access.
+    // Populated lazily from disk once per user and kept in step by every write.
+    private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, byte>> ActiveRows = new();
+
+    private static bool TracksPlayback(TimelineProgress? state)
+        => state?.PlaybackMode is "armed" or "playing";
+
+    private static void UpdateActiveIndex(Guid user, Guid row, TimelineProgress? state)
+    {
+        if (!ActiveRows.TryGetValue(user, out var rows)) return; // Not loaded yet: the first event scans disk.
+        if (TracksPlayback(state)) rows[row] = 0;
+        else rows.TryRemove(row, out _);
+    }
+
+    /// <summary>Must be called while holding <see cref="WriteLock"/>.</summary>
+    private static async Task<ConcurrentDictionary<Guid, byte>> LoadActiveRowsAsync(Guid user, string folder, CancellationToken cancellationToken)
+    {
+        if (ActiveRows.TryGetValue(user, out var known)) return known;
+        var rows = new ConcurrentDictionary<Guid, byte>();
+        if (Directory.Exists(folder))
+        {
+            foreach (var path in Directory.EnumerateFiles(folder, "*.json").Take(100))
+            {
+                if (!Guid.TryParse(Path.GetFileNameWithoutExtension(path), out var rowId)) continue;
+                try
+                {
+                    var state = JsonSerializer.Deserialize<TimelineProgress>(
+                        await System.IO.File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false), JsonOptions);
+                    if (TracksPlayback(state)) rows[rowId] = 0;
+                }
+                catch (JsonException) { /* Damaged records are reported when they are actually used. */ }
+                catch (IOException) { rows[rowId] = 0; /* Re-check on the next event rather than miss it. */ }
+            }
+        }
+        ActiveRows[user] = rows;
+        return rows;
+    }
 
     public sealed class TimelineProgress
     {
@@ -93,7 +134,7 @@ public sealed class FranchiseTimelineController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult List()
+    public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
         if (!TryIdentity(out var user)) return Unauthorized();
         var root = Plugin.Instance?.DataFolderPath;
@@ -107,7 +148,8 @@ public sealed class FranchiseTimelineController : ControllerBase
                 try
                 {
                     if (!Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var rowId) || !ValidRow(rowId)) continue;
-                    var record = JsonSerializer.Deserialize<TimelineProgress>(System.IO.File.ReadAllText(file), JsonOptions);
+                    var record = JsonSerializer.Deserialize<TimelineProgress>(
+                        await System.IO.File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false), JsonOptions);
                     if (record is not null) rows.Add(record);
                 }
                 catch (JsonException) { /* Older or damaged progress is skipped. */ }
@@ -185,6 +227,7 @@ public sealed class FranchiseTimelineController : ControllerBase
                 System.IO.File.Move(temporary, path, overwrite: true);
             }
             finally { if (System.IO.File.Exists(temporary)) System.IO.File.Delete(temporary); }
+            UpdateActiveIndex(user, rowId, record);
         }
         finally { WriteLock.Release(); }
         return TimelineJson(record);
@@ -231,6 +274,7 @@ public sealed class FranchiseTimelineController : ControllerBase
             state.ArmedUtc = null;
             state.UpdatedUtc = DateTimeOffset.UtcNow;
             await WriteProgressAsync(path, state, cancellationToken).ConfigureAwait(false);
+            UpdateActiveIndex(user, rowId, state);
             return TimelineJson(state);
         }
         finally { WriteLock.Release(); }
@@ -287,6 +331,7 @@ public sealed class FranchiseTimelineController : ControllerBase
             }
             state.UpdatedUtc = DateTimeOffset.UtcNow;
             await WriteProgressAsync(path, state, cancellationToken).ConfigureAwait(false);
+            UpdateActiveIndex(user, rowId, state);
             return TimelineJson(state);
         }
         finally { WriteLock.Release(); }
@@ -325,9 +370,13 @@ public sealed class FranchiseTimelineController : ControllerBase
             return;
         }
         var folder = Path.Combine(root, "timeline-progress", userId.ToString("N"));
+        // Fast path: a user with no armed/playing timeline cannot be affected by
+        // this event. Avoids the global lock and all disk access for ordinary
+        // playback, which is the overwhelming majority of events.
+        if (ActiveRows.TryGetValue(userId, out var knownRows) && knownRows.IsEmpty) return;
         if (!Directory.Exists(folder))
         {
-            if (playedToCompletion) logger?.LogWarning("Franchise Explorer: completion ignored: no timeline records for this user.");
+            ActiveRows.TryAdd(userId, new ConcurrentDictionary<Guid, byte>());
             return;
         }
         var rows = 0;
@@ -338,11 +387,16 @@ public sealed class FranchiseTimelineController : ControllerBase
         await WriteLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            foreach (var path in Directory.EnumerateFiles(folder, "*.json").Take(100))
+            var activeIndex = await LoadActiveRowsAsync(userId, folder, cancellationToken).ConfigureAwait(false);
+            foreach (var rowId in activeIndex.Keys.ToArray())
             {
-                if (!Guid.TryParse(Path.GetFileNameWithoutExtension(path), out var rowId) || !ValidRow(rowId)) continue;
+                if (!ValidRow(rowId)) { activeIndex.TryRemove(rowId, out _); continue; }
+                var path = Path.Combine(folder, rowId.ToString("N") + ".json");
                 TimelineProgress? progress;
                 try { progress = JsonSerializer.Deserialize<TimelineProgress>(await System.IO.File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false), JsonOptions); }
+                catch (FileNotFoundException) { activeIndex.TryRemove(rowId, out _); continue; }
+                catch (DirectoryNotFoundException) { activeIndex.TryRemove(rowId, out _); continue; }
+                catch (IOException) { continue; }
                 catch (JsonException)
                 {
                     if (playedToCompletion) logger?.LogWarning("Franchise Explorer: a timeline record could not be parsed; inspect backup before repair.");
@@ -365,7 +419,12 @@ public sealed class FranchiseTimelineController : ControllerBase
                     activated = true;
                     logger?.LogInformation("Franchise Explorer: armed timeline activated by server playback for row {RowId}.", rowId.ToString("N"));
                 }
-                if (progress.PlaybackMode != "playing") continue;
+                if (progress.PlaybackMode != "playing")
+                {
+                    // An expired arm can never activate; drop it from the hot path.
+                    if (progress.PlaybackMode != "armed" || !RecentlyArmed(progress)) activeIndex.TryRemove(rowId, out _);
+                    continue;
+                }
                 activeRows++;
                 if (progress.SessionId != sessionId) continue;
                 sessionMatches++;
@@ -426,6 +485,7 @@ public sealed class FranchiseTimelineController : ControllerBase
                 if (!changed) continue;
                 progress.UpdatedUtc = DateTimeOffset.UtcNow;
                 await WriteProgressAsync(path, progress, cancellationToken).ConfigureAwait(false);
+                if (!TracksPlayback(progress)) activeIndex.TryRemove(rowId, out _);
             }
         }
         finally { WriteLock.Release(); }
@@ -433,7 +493,7 @@ public sealed class FranchiseTimelineController : ControllerBase
         {
             if (savedCompletions > 0)
                 logger?.LogInformation("Franchise Explorer: timeline completion saved, advancedRows={AdvancedRows}.", savedCompletions);
-            else
+            else if (activeRows > 0)
                 logger?.LogWarning("Franchise Explorer: completed playback did not advance a timeline. validRows={Rows}, playingRows={ActiveRows}, matchingSessions={Sessions}, matchingItems={Items}. Check activation/row state; no history was changed.",
                     rows, activeRows, sessionMatches, itemMatches);
         }

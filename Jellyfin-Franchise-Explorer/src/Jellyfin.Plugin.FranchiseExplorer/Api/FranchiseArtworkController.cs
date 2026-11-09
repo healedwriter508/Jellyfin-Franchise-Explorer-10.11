@@ -128,7 +128,7 @@ public sealed class FranchiseArtworkController : ControllerBase
         });
     }
 
-    /// <summary>Serve an uploaded image to an authenticated Jellyfin administrator.</summary>
+    /// <summary>Serve an uploaded image to an authenticated Jellyfin viewer, with ETag revalidation.</summary>
     [HttpGet("{nodeId:guid}/{slot}")]
     public IActionResult Read(Guid nodeId, string slot)
     {
@@ -139,9 +139,16 @@ public sealed class FranchiseArtworkController : ControllerBase
             var path = Path.Combine(directory, safeSlot + "." + extension);
             if (!System.IO.File.Exists(path)) continue;
             var mime = extension switch { "png" => "image/png", "jpg" => "image/jpeg", _ => "image/webp" };
-            Response.Headers["Cache-Control"] = "no-store";
+            // Images can be up to 8 MB. Let the browser keep a private copy and
+            // revalidate it cheaply (304) instead of downloading it on every view.
+            // The ETag changes whenever a replacement image is uploaded.
+            var info = new FileInfo(path);
+            var etag = new Microsoft.Net.Http.Headers.EntityTagHeaderValue(
+                "\"" + info.LastWriteTimeUtc.Ticks.ToString("x", System.Globalization.CultureInfo.InvariantCulture)
+                + "-" + info.Length.ToString("x", System.Globalization.CultureInfo.InvariantCulture) + "\"");
+            Response.Headers["Cache-Control"] = "private, no-cache";
             Response.Headers["X-Content-Type-Options"] = "nosniff";
-            return PhysicalFile(path, mime, enableRangeProcessing: false);
+            return PhysicalFile(path, mime, new DateTimeOffset(info.LastWriteTimeUtc), etag, enableRangeProcessing: false);
         }
 
         return NotFound();

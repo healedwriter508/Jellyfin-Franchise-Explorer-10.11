@@ -124,7 +124,8 @@ public sealed class TimelinePlaybackMonitorService : IHostedService
         // filenames, paths, or any private configuration data.
         var nearEnd = CompletedAtEndDespiteUnflaggedStop(args);
         var completed = args.PlayedToCompletion || nearEnd;
-        _logger.LogInformation("Franchise Explorer: Jellyfin playback stopped, reportedCompletion={ReportedCompletion}, nearEndEvidence={NearEnd}, session={SessionId}",
+        // Debug level: this fires for every stop on the server, for every user.
+        _logger.LogDebug("Franchise Explorer: Jellyfin playback stopped, reportedCompletion={ReportedCompletion}, nearEndEvidence={NearEnd}, session={SessionId}",
             args.PlayedToCompletion, nearEnd, args.Session?.Id ?? "unknown");
         Dispatch(args, completed, false);
     }

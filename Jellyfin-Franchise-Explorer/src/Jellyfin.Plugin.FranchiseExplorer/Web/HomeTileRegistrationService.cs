@@ -23,15 +23,13 @@ namespace Jellyfin.Plugin.FranchiseExplorer.Web;
 public sealed class HomeTileRegistrationService : IHostedService, IDisposable
 {
     private const string InjectorAssemblyName = "Jellyfin.Plugin.JavaScriptInjector";
-    private const string ScriptResourceName = "Jellyfin.Plugin.FranchiseExplorer.Web.franchise-my-media.js";
-    private const string TimelineResourceName = "Jellyfin.Plugin.FranchiseExplorer.Web.franchise-timeline.js";
-    private const string TileArtResourceName = "Jellyfin.Plugin.FranchiseExplorer.Web.franchise-tile-backdrop.webp";
     // Script IDs are stable within a UI generation, not forever. Injector and
     // Jellyfin Web can cache the previous script despite a DLL replacement.
     // A new ID lets this release load the updated home and menu integration.
-    private const string CurrentScriptId = "jellyfin-franchise-explorer-my-media-v08915";
+    private const string CurrentScriptId = "jellyfin-franchise-explorer-my-media-v08916";
     private static readonly string[] LegacyScriptIds =
     {
+        "jellyfin-franchise-explorer-my-media-v08915",
         "jellyfin-franchise-explorer-my-media-v08914",
         "jellyfin-franchise-explorer-my-media-v08913",
         "jellyfin-franchise-explorer-my-media-v08912",
@@ -138,26 +136,20 @@ public sealed class HomeTileRegistrationService : IHostedService, IDisposable
         MethodInfo? parse = payloadType.GetMethod("Parse", new[] { typeof(string) });
         if (parse is null) return false;
 
-        using Stream? stream = typeof(global::Jellyfin.Plugin.FranchiseExplorer.Plugin).Assembly.GetManifestResourceStream(ScriptResourceName);
-        if (stream is null) throw new InvalidOperationException("Embedded home-tile JavaScript resource missing.");
-        using var reader = new StreamReader(stream);
-        string script = reader.ReadToEnd();
+        string script = EmbeddedAssets.Text(EmbeddedAssets.HomeScript)
+            ?? throw new InvalidOperationException("Embedded home-tile JavaScript resource missing.");
         // The home-page popup reuses the same chronological timeline engine as
         // Browse. Load it before the home widget in the ONE Injector script;
         // the browser never needs to navigate to the standalone editor.
-        using Stream? timelineStream = typeof(global::Jellyfin.Plugin.FranchiseExplorer.Plugin).Assembly.GetManifestResourceStream(TimelineResourceName);
-        if (timelineStream is null) throw new InvalidOperationException("Embedded franchise timeline JavaScript resource missing.");
-        using var timelineReader = new StreamReader(timelineStream);
-        script = timelineReader.ReadToEnd() + "\n" + script;
-        // Keep the standalone browser script readable/testable. At runtime the
-        // DLL supplies its embedded artwork as a small self-contained data URI.
-        using Stream? artStream = typeof(global::Jellyfin.Plugin.FranchiseExplorer.Plugin).Assembly.GetManifestResourceStream(TileArtResourceName);
-        if (artStream is not null)
+        string timeline = EmbeddedAssets.Text(EmbeddedAssets.TimelineScript)
+            ?? throw new InvalidOperationException("Embedded franchise timeline JavaScript resource missing.");
+        script = timeline + "\n" + script;
+        // The tile artwork is served (and cached by the browser) from its own
+        // endpoint. Inlining it as base64 added ~225 KB to every page load.
+        if (EmbeddedAssets.Bytes(EmbeddedAssets.TileArt) is not null)
         {
-            using var buffer = new MemoryStream();
-            artStream.CopyTo(buffer);
-            string url = "data:image/webp;base64," + Convert.ToBase64String(buffer.ToArray());
-            script = script.Replace("__FE_TILE_ART_DATA_URL__", url, StringComparison.Ordinal);
+            script = script.Replace("__FE_TILE_ART_URL__",
+                "/FranchiseExplorer/TileArt?v=" + Uri.EscapeDataString(EmbeddedAssets.Version), StringComparison.Ordinal);
         }
 
         string json = JsonSerializer.Serialize(new Dictionary<string, object>
@@ -170,7 +162,7 @@ public sealed class HomeTileRegistrationService : IHostedService, IDisposable
             ["requiresAuthentication"] = false,
             ["pluginId"] = global::Jellyfin.Plugin.FranchiseExplorer.Plugin.PluginId.ToString(),
             ["pluginName"] = "Franchise Explorer",
-            ["pluginVersion"] = "0.8.9.15"
+            ["pluginVersion"] = EmbeddedAssets.Version
         });
 
         object? payload = parse.Invoke(null, new object[] { json });

@@ -8,16 +8,16 @@ const root = path.join(__dirname,'../src/Jellyfin.Plugin.FranchiseExplorer');
 const home = fs.readFileSync(path.join(root,'Web/franchise-my-media.js'),'utf8');
 const timeline = fs.readFileSync(path.join(root,'Web/franchise-timeline.js'),'utf8');
 const service = fs.readFileSync(path.join(root,'Web/HomeTileRegistrationService.cs'),'utf8');
-assert(service.includes('script = timelineReader.ReadToEnd() + "\\n" + script;'), 'Home Injector must load the shared timeline module');
+assert(service.includes('script = timeline + "\\n" + script;'), 'Home Injector must load the shared timeline module');
 assert(home.includes("option=document.createElement('button')"));
 assert(!home.includes("option.href=serverPath('/FranchiseExplorer/Browse?timeline='"));
 assert(home.includes("player.openDialog(row,false,'select')"));
 assert(home.includes("ensureHomeTimelineStyle()"));
 assert(home.includes("enforceStartOver(id)"));
-assert(home.includes("window.__franchiseTimelineHomeVersion === '0.8.9.15'"));
+assert(home.includes("window.__franchiseTimelineHomeVersion === '0.8.9.16'"));
 assert(home.includes('fe-home-chronological-modal'));
-assert(home.includes("STYLE_ID = 'franchise-timeline-resume-style-v08915'"));
-assert(home.includes('fe-home-timeline-dialog-style-v08915'));
+assert(home.includes("STYLE_ID = 'franchise-timeline-resume-style-v08916'"));
+assert(home.includes('fe-home-timeline-dialog-style-v08916'));
 assert(!home.includes("confirm('Reset all chronological progress"));
 
 const idA='11111111-1111-1111-1111-111111111111';
@@ -201,5 +201,5 @@ async function resetPopup(accept) {
   assert.equal(quick.id,idB);
   assert.equal(quick.startOver,true);
   assert.equal(quick.type,'Movie');
-  console.log('v0.8.9.15 centered reset, native restart, stale-menu recovery, and in-place chronological list tests passed.');
+  console.log('v0.8.9.16 centered reset, native restart, stale-menu recovery, and in-place chronological list tests passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

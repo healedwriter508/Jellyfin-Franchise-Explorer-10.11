@@ -1,3 +1,25 @@
+## v0.8.9.16 — Performance, tidy-up, and a Jellyfin-native look (experimental)
+
+**Performance**
+- Server: playback events (fired every few seconds for every stream on the server) no longer read every timeline file for the user. An in-memory index of armed/playing rows lets ordinary playback skip the global lock and all disk access.
+- Server: routine "playback stopped" and "no timeline" messages moved from Information/Warning to Debug, so they no longer flood the Jellyfin log for every user.
+- Server: embedded pages/scripts are read once per process and served with ETag revalidation (304) instead of `no-store`. Uploaded artwork (up to 8 MB each) is revalidated with an ETag instead of being re-downloaded on every view.
+- Injected script: the tile backdrop is served from a cached `/FranchiseExplorer/TileArt` endpoint instead of ~225 KB of base64 inlined into every Jellyfin page load.
+- Home integration: the My Media tile and Continue Your Franchises widget no longer scan the whole document on every DOM mutation, or poll the API every 12 seconds, outside Jellyfin Home (for example during video playback).
+- Auto-next: the 2-second follow poll reads only the followed timeline row instead of every timeline for the user.
+- Chronological resolver: referenced titles are looked up concurrently, and each series' episode list is fetched once even when a timeline splits it into several ranges.
+- Jellyfin image URLs now include their image tag, so the browser can reuse cached posters and backdrops.
+
+**Look and feel**
+- Replaced the custom teal/blue-grey palette (~200 distinct shades) with Jellyfin's own: `#00a4dc` accent, neutral dark-theme greys, 0.2em corners and the host font.
+- Continue Your Franchises uses Jellyfin Web's native section/title markup, so it lines up with Continue Watching and Next Up; cards gain a hover play overlay.
+- Menus, dialogs and notices match Jellyfin's action sheets and dialogs. The Franchises browser gets a Jellyfin-style header with icons, and the settings editor matches the dashboard controls.
+
+**Tidy-up**
+- Removed the unused `MediaReference` model and duplicated screenshots under `Jellyfin-Franchise-Explorer/docs`.
+- The Catalog API reports the real plugin version instead of a stale hard-coded `0.8.2.0`.
+- CI now runs every offline contract test plus the Home browser test.
+
 ## v0.8.9.14 — Three-level homepage progress and consistent confirmations (experimental)
 
 - Added current episode/movie playback progress above the Continue Your Franchises chronological progress bar.

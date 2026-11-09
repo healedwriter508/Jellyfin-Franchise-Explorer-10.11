@@ -92,18 +92,30 @@
       const refs=[...links,...own];
       if(ranks.size) refs.sort((a,b)=>(ranks.get(a.id)??99999)-(ranks.get(b.id)??99999));
       const queue=[],warnings=[],duplicateCheck=new Set();
-      for(const ref of refs){
+      // Look up every referenced title concurrently (the browser still caps
+      // connections per host) instead of one round-trip after another, and
+      // fetch each series' episode list once even when a timeline splits the
+      // same show into several season/episode ranges.
+      const resolvedItems=await Promise.all(refs.map(ref=>guid(ref.itemId)
+        ? Promise.resolve().then(()=>this.context.getItem(ref.itemId)).catch(()=>null) : null));
+      const episodeLists=new Map();
+      const episodesOf=id=>{
+        const key=String(id).toLowerCase();
+        if(!episodeLists.has(key))episodeLists.set(key,this.getEpisodes(id));
+        return episodeLists.get(key);
+      };
+      for(const [refIndex,ref] of refs.entries()){
         if(!guid(ref.itemId)){warnings.push('A saved reference has no valid Jellyfin item ID.');continue;}
-        const item=await this.context.getItem(ref.itemId);
+        const item=resolvedItems[refIndex];
         if(!item){warnings.push('An item is missing or not accessible to your Jellyfin account.');continue;}
         let items=[];
         try {
           if(item.Type==='Movie' || item.Type==='Episode')items=[item];
-          else if(item.Type==='Series')items=(await this.getEpisodes(item.Id)).filter(ep=>inRange(ep,ref));
+          else if(item.Type==='Series')items=(await episodesOf(item.Id)).filter(ep=>inRange(ep,ref));
           else if(item.Type==='BoxSet'){
             const members=await this.getCollection(item.Id);
             for(const member of members){if(member.Type==='Movie')items.push(member);
-              else if(member.Type==='Series')items.push(...await this.getEpisodes(member.Id));}
+              else if(member.Type==='Series')items.push(...await episodesOf(member.Id));}
           }else{warnings.push('Cannot queue unsupported type '+item.Type+'.');continue;}
         }catch(e){warnings.push('Unable to resolve '+(item.Name||'item')+': '+e.message);continue;}
         if(!items.length){warnings.push((item.Name||'TV Show')+' has no accessible episodes matching '+rangeLabel(ref)+'.');continue;}
@@ -564,11 +576,11 @@
       // the middle of Jellyfin. Use a focused, fully modal in-page prompt.
       return new Promise(resolve=>{
         const mask=this.make('div','timeline-choice-confirm-mask');
-        mask.style.cssText='position:fixed;inset:0;z-index:2147483646;display:grid;place-items:center;padding:16px;background:#06090cce;backdrop-filter:blur(3px)';
+        mask.style.cssText='position:fixed;inset:0;z-index:2147483646;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.7)';
         const dialog=this.make('section','timeline-choice-confirm');
         dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-modal','true');
         dialog.setAttribute('aria-label','Confirm chronological timeline action');
-        dialog.style.cssText='box-sizing:border-box;width:min(460px,100%);padding:24px;border:1px solid #657989;border-radius:12px;background:#202a35;color:#fff;box-shadow:0 20px 60px #000d;font:15px/1.5 system-ui,sans-serif';
+        dialog.style.cssText='box-sizing:border-box;width:min(460px,100%);padding:24px;border:0;border-radius:.3em;background:#202020;color:#fff;box-shadow:0 0 30px rgba(0,0,0,.6);font-size:15px;line-height:1.5;font-family:inherit';
         const prompt=this.make('p','',message);prompt.style.margin='0 0 20px';
         const buttons=this.make('div','');buttons.style.cssText='display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap';
         const previous=document.activeElement;
@@ -577,9 +589,9 @@
         const accept=this.button(confirmLabel,()=>end(true),'btn btn-primary');
         // Match the home card's reset confirmation regardless of Jellyfin's
         // global button styles (the embedded browser does not share its CSS).
-        const buttonStyle='box-sizing:border-box;min-height:43px;border:1px solid #607184;border-radius:8px;padding:9px 14px;background:#2b3643;color:#fff;font:600 14px system-ui,sans-serif;cursor:pointer';
+        const buttonStyle='box-sizing:border-box;min-height:43px;border:0;border-radius:.2em;padding:9px 16px;background:#303030;color:#fff;font-weight:600;font-size:14px;font-family:inherit;cursor:pointer';
         cancel.style.cssText=buttonStyle;
-        accept.style.cssText=buttonStyle+';background:#0b9caf;border-color:#0b9caf;color:#03191c';
+        accept.style.cssText=buttonStyle+';background:#00a4dc;border-color:#00a4dc;color:#fff';
         buttons.append(cancel,accept);dialog.append(prompt,buttons);mask.append(dialog);document.body.append(mask);
         mask.addEventListener('click',event=>{if(event.target===mask)end(false);});
         mask.addEventListener('keydown',event=>{

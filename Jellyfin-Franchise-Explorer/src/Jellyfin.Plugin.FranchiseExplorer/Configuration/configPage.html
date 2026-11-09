@@ -5,7 +5,7 @@
 <div id="FranchiseExplorerConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
 <style id="fx-live-css">
 /* All visual styles are inside the loaded page, not <head> (which Jellyfin may discard). */
-#FranchiseExplorerConfigPage { --fx-card: #202328; --fx-border: rgba(180,191,206,.2); --fx-text: #edf0f3; --fx-muted: #a9b4c1; --fx-accent: #11b3c8; color:var(--fx-text); width:100%!important; max-width:100%!important; min-width:0!important; padding:0!important; margin:0!important; box-sizing:border-box; overflow-x:hidden; }
+#FranchiseExplorerConfigPage { --fx-card: #242424; --fx-border: rgba(193,193,193,.2); --fx-text: #f0f0f0; --fx-muted: #b5b5b5; --fx-accent: #00a4dc; color:var(--fx-text); width:100%!important; max-width:100%!important; min-width:0!important; padding:0!important; margin:0!important; box-sizing:border-box; overflow-x:hidden; }
 /* Prevent Jellyfin dashboard ancestors, oversize plugins, or embedded webview width from pushing content off screen. */
 #FranchiseExplorerConfigPage, #FranchiseExplorerConfigPage .fx-wrap, #FranchiseExplorerConfigPage .fx-panel, #FranchiseExplorerConfigPage .fx-grid { min-inline-size:0!important; }
 #FranchiseExplorerConfigPage .fx-wrap { overflow-wrap:anywhere; }
@@ -24,86 +24,86 @@
 #FranchiseExplorerConfigPage .fx-muted {color:var(--fx-muted);font-size:.88rem;line-height:1.5}
 #FranchiseExplorerConfigPage .fx-warning {border-left:4px solid #e4af47;border-radius:9px;padding:12px 16px;margin:0 0 18px;background:rgba(228,175,71,.10);font-size:.9rem}
 #FranchiseExplorerConfigPage .fx-warning strong {color:#ffd88a}
-#FranchiseExplorerConfigPage .fx-warning p {margin:4px 0 0;color:#d8d9dc}
+#FranchiseExplorerConfigPage .fx-warning p {margin:4px 0 0;color:#dadada}
 #FranchiseExplorerConfigPage .fx-toolbar {width:100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 18px}
 #FranchiseExplorerConfigPage .fx-toolbar-left, #FranchiseExplorerConfigPage .fx-toolbar-right {display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #FranchiseExplorerConfigPage button {font:inherit;cursor:pointer}
-#FranchiseExplorerConfigPage .fx-btn {background:#30363e!important;color:#f5f5f5!important;border:1px solid #58616d!important;border-radius:8px!important;padding:9px 13px!important;font-size:.88rem!important;font-weight:600!important;min-height:39px}
-#FranchiseExplorerConfigPage .fx-btn:hover {background:#414c57!important}
-#FranchiseExplorerConfigPage .fx-btn:focus-visible {outline:2px solid #36cfe4;outline-offset:2px}
+#FranchiseExplorerConfigPage .fx-btn {background:#373737!important;color:#f5f5f5!important;border:1px solid #626262!important;border-radius:8px!important;padding:9px 13px!important;font-size:.88rem!important;font-weight:600!important;min-height:39px}
+#FranchiseExplorerConfigPage .fx-btn:hover {background:#4c4c4c!important}
+#FranchiseExplorerConfigPage .fx-btn:focus-visible {outline:2px solid #00a4dc;outline-offset:2px}
 #FranchiseExplorerConfigPage .fx-btn:disabled {opacity:.38;cursor:not-allowed}
-#FranchiseExplorerConfigPage .fx-btn-primary {background:#069eb1!important;border-color:#069eb1!important;color:#061416!important}
-#FranchiseExplorerConfigPage .fx-btn-primary:hover {background:#1fc0d3!important}
+#FranchiseExplorerConfigPage .fx-btn-primary {background:#0086b3!important;border-color:#0086b3!important;color:#fff!important}
+#FranchiseExplorerConfigPage .fx-btn-primary:hover {background:#00a4dc!important}
 #FranchiseExplorerConfigPage .fx-btn-danger {border-color:rgba(248,105,105,.35)!important;color:#ffadad!important;background:rgba(192,55,55,.12)!important}
 #FranchiseExplorerConfigPage .fx-btn-small {padding:6px 10px!important;min-height:32px;font-size:.79rem!important}
 #FranchiseExplorerConfigPage .fx-grid {width:100%;min-width:0;max-width:100%;display:grid;grid-template-columns:minmax(230px, 310px) minmax(0,1fr);gap:16px;align-items:start}
 #FranchiseExplorerConfigPage .fx-panel {max-width:100%;overflow-wrap:anywhere;background:var(--fx-card);border:1px solid var(--fx-border);border-radius:12px;padding:22px;min-width:0;box-shadow:0 5px 20px rgba(0,0,0,.08)}
 #FranchiseExplorerConfigPage .fx-sticky {position:sticky;top:16px}
 #FranchiseExplorerConfigPage .fx-panel-title {display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
-#FranchiseExplorerConfigPage .fx-counter {font-size:.78rem;padding:4px 8px;border-radius:20px;background:rgba(166,184,205,.13);color:var(--fx-muted)}
+#FranchiseExplorerConfigPage .fx-counter {font-size:.78rem;padding:4px 8px;border-radius:20px;background:rgba(186,186,186,.13);color:var(--fx-muted)}
 #FranchiseExplorerConfigPage .fx-row {display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 16px}
 #FranchiseExplorerConfigPage .fx-field {display:block;margin:12px 0;min-width:0}
 #FranchiseExplorerConfigPage .fx-field>span {display:block;font-size:.87rem;font-weight:650;margin-bottom:7px}
-#FranchiseExplorerConfigPage .fx-field input,#FranchiseExplorerConfigPage .fx-field textarea,#FranchiseExplorerConfigPage .fx-field select,#FranchiseExplorerConfigPage input.fx-input {font:inherit;color:#f4f5f7!important;background:#151a20!important;border:1px solid #596471!important;border-radius:7px!important;padding:10px 11px!important;box-sizing:border-box;width:100%;outline:none}
+#FranchiseExplorerConfigPage .fx-field input,#FranchiseExplorerConfigPage .fx-field textarea,#FranchiseExplorerConfigPage .fx-field select,#FranchiseExplorerConfigPage input.fx-input {font:inherit;color:#f6f6f6!important;background:#1a1a1a!important;border:1px solid #656565!important;border-radius:7px!important;padding:10px 11px!important;box-sizing:border-box;width:100%;outline:none}
 #FranchiseExplorerConfigPage .fx-field textarea {resize:vertical;min-height:88px}
-#FranchiseExplorerConfigPage .fx-field input:focus,#FranchiseExplorerConfigPage .fx-field textarea:focus,#FranchiseExplorerConfigPage .fx-field select:focus,#FranchiseExplorerConfigPage input.fx-input:focus {border-color:#1bc7dc!important;box-shadow:0 0 0 2px rgba(27,199,220,.15)}
-#FranchiseExplorerConfigPage .fx-field select option {background:#202328;color:#f4f5f7}
+#FranchiseExplorerConfigPage .fx-field input:focus,#FranchiseExplorerConfigPage .fx-field textarea:focus,#FranchiseExplorerConfigPage .fx-field select:focus,#FranchiseExplorerConfigPage input.fx-input:focus {border-color:#00a4dc!important;box-shadow:0 0 0 2px rgba(0,164,220,.15)}
+#FranchiseExplorerConfigPage .fx-field select option {background:#242424;color:#f6f6f6}
 #FranchiseExplorerConfigPage .fx-two {display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.42fr);gap:14px}
 #FranchiseExplorerConfigPage .fx-divider {border:0;border-top:1px solid var(--fx-border);margin:20px 0}
 #FranchiseExplorerConfigPage .fx-tree {display:flex;flex-direction:column;gap:4px;max-height:67vh;overflow:auto;margin:12px -6px;padding:0 6px}
-#FranchiseExplorerConfigPage .fx-tree-item {display:flex;align-items:center;gap:7px;text-align:left;width:100%;border:1px solid transparent;border-radius:7px;padding:10px 9px;margin:0;background:transparent;color:#dce3eb;cursor:pointer;overflow:hidden}
-#FranchiseExplorerConfigPage .fx-tree-item:hover {background:rgba(163,198,216,.11)}
-#FranchiseExplorerConfigPage .fx-tree-item[aria-current="true"] {background:rgba(10,176,201,.18);border-color:rgba(38,193,214,.50);color:#d9faff;font-weight:700}
+#FranchiseExplorerConfigPage .fx-tree-item {display:flex;align-items:center;gap:7px;text-align:left;width:100%;border:1px solid transparent;border-radius:7px;padding:10px 9px;margin:0;background:transparent;color:#e3e3e3;cursor:pointer;overflow:hidden}
+#FranchiseExplorerConfigPage .fx-tree-item:hover {background:rgba(190,190,190,.11)}
+#FranchiseExplorerConfigPage .fx-tree-item[aria-current="true"] {background:rgba(0,164,220,.18);border-color:rgba(0,164,220,.50);color:#ececec;font-weight:700}
 #FranchiseExplorerConfigPage .fx-tree-item .fx-tree-icon {width:18px;opacity:.85;text-align:center;flex-shrink:0}
 #FranchiseExplorerConfigPage .fx-tree-item .fx-tree-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-#FranchiseExplorerConfigPage .fx-tree-item .fx-tree-type {font-size:.73rem;color:#afbbc5;flex-shrink:0}
-#FranchiseExplorerConfigPage .fx-empty {border:1px dashed rgba(189,201,215,.28);border-radius:10px;padding:20px;color:#adb8c4;text-align:center;margin:12px 0}
+#FranchiseExplorerConfigPage .fx-tree-item .fx-tree-type {font-size:.73rem;color:#bababa;flex-shrink:0}
+#FranchiseExplorerConfigPage .fx-empty {border:1px dashed rgba(202,202,202,.28);border-radius:10px;padding:20px;color:#b9b9b9;text-align:center;margin:12px 0}
 #FranchiseExplorerConfigPage .fx-artwork {display:grid;grid-template-columns:160px minmax(0,1fr);gap:14px;align-items:start;margin-top:12px}
-#FranchiseExplorerConfigPage .fx-art-preview {border:1px dashed #566577;border-radius:9px;min-height:198px;background:linear-gradient(130deg,#141b26,#263440);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+#FranchiseExplorerConfigPage .fx-art-preview {border:1px dashed #666666;border-radius:9px;min-height:198px;background:linear-gradient(130deg,#1d1d1d,#333333);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 #FranchiseExplorerConfigPage .fx-art-preview img {height:198px;width:100%;object-fit:contain}
-#FranchiseExplorerConfigPage .fx-art-preview .fx-art-placeholder {text-align:center;color:#9ab3c0;font-size:.78rem;padding:8px}
+#FranchiseExplorerConfigPage .fx-art-preview .fx-art-placeholder {text-align:center;color:#adadad;font-size:.78rem;padding:8px}
 #FranchiseExplorerConfigPage .fx-mini-art {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
-#FranchiseExplorerConfigPage .fx-mini-art img {width:100%;height:80px;object-fit:cover;border:1px solid #57616b;border-radius:7px;background:#161b20}
+#FranchiseExplorerConfigPage .fx-mini-art img {width:100%;height:80px;object-fit:cover;border:1px solid #616161;border-radius:7px;background:#1b1b1b}
 #FranchiseExplorerConfigPage .fx-section-intro {margin:0 0 15px}
 #FranchiseExplorerConfigPage .fx-tree-item[draggable="true"] {cursor:grab}
 #FranchiseExplorerConfigPage .fx-tree-item.fx-dragging {opacity:.4}
-#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-before {box-shadow:inset 0 3px 0 #11b3c8}
-#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-after {box-shadow:inset 0 -3px 0 #11b3c8}
-#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-inside {outline:2px dashed #11b3c8;outline-offset:-2px}
+#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-before {box-shadow:inset 0 3px 0 #00a4dc}
+#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-after {box-shadow:inset 0 -3px 0 #00a4dc}
+#FranchiseExplorerConfigPage .fx-tree-item.fx-drop-inside {outline:2px dashed #00a4dc;outline-offset:-2px}
 #FranchiseExplorerConfigPage .fx-action-head {display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0 0 12px}
-#FranchiseExplorerConfigPage .fx-scope {background:#152730;border:1px solid #42606a;border-radius:8px;padding:11px 13px;margin:12px 0;color:#c1e4e9}
-#FranchiseExplorerConfigPage .fx-tv-range {border:1px solid #547080;border-radius:10px;padding:14px;margin:12px 0;background:#18252b}
+#FranchiseExplorerConfigPage .fx-scope {background:#222222;border:1px solid #565656;border-radius:8px;padding:11px 13px;margin:12px 0;color:#d5d5d5}
+#FranchiseExplorerConfigPage .fx-tv-range {border:1px solid #6a6a6a;border-radius:10px;padding:14px;margin:12px 0;background:#222222}
 #FranchiseExplorerConfigPage .fx-range-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #FranchiseExplorerConfigPage .fx-range-grid .fx-field {margin:4px 0}
 #FranchiseExplorerConfigPage .fx-result-list {display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto}
-#FranchiseExplorerConfigPage .fx-result {display:flex;align-items:center;gap:12px;background:rgba(154,178,196,.07);border:1px solid rgba(175,195,210,.16);border-radius:7px;padding:8px;text-align:left;color:#f1f6fa;width:100%}
-#FranchiseExplorerConfigPage .fx-result:hover {background:rgba(65,183,202,.18);border-color:rgba(65,183,202,.45)}
-#FranchiseExplorerConfigPage .fx-result img,#FranchiseExplorerConfigPage .fx-thumb-placeholder {width:39px;height:57px;border-radius:4px;object-fit:cover;background:#343f4c;flex-shrink:0}
-#FranchiseExplorerConfigPage .fx-thumb-placeholder {display:flex;align-items:center;justify-content:center;color:#adbeca;font-size:1.2rem}
+#FranchiseExplorerConfigPage .fx-result {display:flex;align-items:center;gap:12px;background:rgba(175,175,175,.07);border:1px solid rgba(192,192,192,.16);border-radius:7px;padding:8px;text-align:left;color:#f5f5f5;width:100%}
+#FranchiseExplorerConfigPage .fx-result:hover {background:rgba(0,164,220,.18);border-color:rgba(0,164,220,.45)}
+#FranchiseExplorerConfigPage .fx-result img,#FranchiseExplorerConfigPage .fx-thumb-placeholder {width:39px;height:57px;border-radius:4px;object-fit:cover;background:#404040;flex-shrink:0}
+#FranchiseExplorerConfigPage .fx-thumb-placeholder {display:flex;align-items:center;justify-content:center;color:#bcbcbc;font-size:1.2rem}
 #FranchiseExplorerConfigPage .fx-result-info {flex:1;min-width:0}
 #FranchiseExplorerConfigPage .fx-result-info strong {display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#FranchiseExplorerConfigPage .fx-result-info small {display:block;color:#abb9c5;margin-top:4px}
+#FranchiseExplorerConfigPage .fx-result-info small {display:block;color:#b8b8b8;margin-top:4px}
 #FranchiseExplorerConfigPage .fx-link {min-width:0;border-top:1px solid var(--fx-border);padding:11px 0;display:flex;gap:12px;align-items:center;justify-content:space-between}
 #FranchiseExplorerConfigPage .fx-link strong {font-size:.88rem}
-#FranchiseExplorerConfigPage .fx-link small {color:#b0bbc8;display:block;margin-top:5px}
+#FranchiseExplorerConfigPage .fx-link small {color:#bcbcbc;display:block;margin-top:5px}
 #FranchiseExplorerConfigPage .fx-link-actions {display:flex;flex-direction:row;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-#FranchiseExplorerConfigPage .fx-status {border-radius:8px;background:rgba(77,150,184,.12);padding:10px 12px;margin:12px 0 0;min-height:40px;font-size:.87rem}
+#FranchiseExplorerConfigPage .fx-status {border-radius:8px;background:rgba(130,130,130,.12);padding:10px 12px;margin:12px 0 0;min-height:40px;font-size:.87rem}
 #FranchiseExplorerConfigPage .fx-footer {margin-top:20px}
 #FranchiseExplorerConfigPage .fx-footer-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 #FranchiseExplorerConfigPage .fx-viewer-preferences {margin:0 0 16px;padding:15px 18px}
 #FranchiseExplorerConfigPage .fx-viewer-preferences h2 {margin:0 0 10px;font-size:1.1rem}
 #FranchiseExplorerConfigPage .fx-viewer-preferences .fx-field {margin:9px 0}
-#FranchiseExplorerConfigPage .fx-viewer-preferences input[type="checkbox"] {width:20px;height:20px;accent-color:#00a7bf;vertical-align:middle;margin-right:7px}
+#FranchiseExplorerConfigPage .fx-viewer-preferences input[type="checkbox"] {width:20px;height:20px;accent-color:#00a4dc;vertical-align:middle;margin-right:7px}
 #FranchiseExplorerConfigPage .fx-hidden {display:none!important}
 #FranchiseExplorerConfigPage .fx-sm-pad {margin-top:4px}
-#FranchiseExplorerConfigPage .fx-source {margin:6px 0;color:#a6c9d1;font-size:.78rem;min-height:24px}
-#FranchiseExplorerConfigPage .fx-source strong {color:#d4f7f7}
+#FranchiseExplorerConfigPage .fx-source {margin:6px 0;color:#bcbcbc;font-size:.78rem;min-height:24px}
+#FranchiseExplorerConfigPage .fx-source strong {color:#e6e6e6}
 #FranchiseExplorerConfigPage .fx-collection-results {max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:5px;margin:8px 0}
-#FranchiseExplorerConfigPage .fx-collection-result {width:100%;text-align:left;color:#e8f2f7;border:1px solid #51606d;border-radius:7px;background:#242e37;padding:9px 11px}
-#FranchiseExplorerConfigPage .fx-collection-result:hover {border-color:#11b3c8;background:#28414a}
-#FranchiseExplorerConfigPage .fx-info {border-left:3px solid #19adc1;padding:9px 11px;margin:10px 0;background:rgba(40,168,191,.10);border-radius:4px;font-size:.83rem}
+#FranchiseExplorerConfigPage .fx-collection-result {width:100%;text-align:left;color:#f0f0f0;border:1px solid #5f5f5f;border-radius:7px;background:#2e2e2e;padding:9px 11px}
+#FranchiseExplorerConfigPage .fx-collection-result:hover {border-color:#00a4dc;background:#393939}
+#FranchiseExplorerConfigPage .fx-info {border-left:3px solid #00a4dc;padding:9px 11px;margin:10px 0;background:rgba(0,164,220,.10);border-radius:4px;font-size:.83rem}
 #FranchiseExplorerConfigPage .fx-selection-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
-#FranchiseExplorerConfigPage .fx-result-check {width:19px;height:19px;flex-shrink:0;accent-color:#11b3c8}
+#FranchiseExplorerConfigPage .fx-result-check {width:19px;height:19px;flex-shrink:0;accent-color:#00a4dc}
 
 /* The Jellyfin dashboard can constrain a plugin page independently of viewport width.
    Container queries follow the width ACTUALLY available to the editor. */
@@ -137,7 +137,7 @@
 #FranchiseExplorerConfigPage .fx-image-grid{min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 #FranchiseExplorerConfigPage .fx-image-tile{border:1px solid var(--fx-border);border-radius:10px;padding:13px;min-width:0;background:rgba(0,0,0,.08)}
 #FranchiseExplorerConfigPage .fx-image-tile h4{margin:0 0 8px;font-size:.91rem;font-weight:650}
-#FranchiseExplorerConfigPage .fx-image-display{height:118px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px dashed #516072;border-radius:7px;background:#171d24;color:var(--fx-muted);font-size:.8rem}
+#FranchiseExplorerConfigPage .fx-image-display{height:118px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px dashed #626262;border-radius:7px;background:#1e1e1e;color:var(--fx-muted);font-size:.8rem}
 #FranchiseExplorerConfigPage .fx-image-display img{width:100%;height:100%;object-fit:contain}
 #FranchiseExplorerConfigPage .fx-image-tile .fx-row{margin:9px 0 0}
 #FranchiseExplorerConfigPage .fx-image-tile small{display:block;color:var(--fx-muted);margin-top:5px;overflow-wrap:anywhere}
@@ -162,10 +162,10 @@
 #FranchiseExplorerConfigPage .fx-result > .fx-btn {flex:0 1 auto;white-space:normal}
 #FranchiseExplorerConfigPage .fx-toolbar, #FranchiseExplorerConfigPage .fx-row {min-inline-size:0}
 #FranchiseExplorerConfigPage .fx-modal-overlay {position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:2147483000!important;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;box-sizing:border-box}
-#FranchiseExplorerConfigPage .fx-modal-dialog {width:min(100%,540px);max-height:calc(100dvh - 32px);overflow-y:auto;min-width:0;border:1px solid #627383;border-radius:14px;box-shadow:0 20px 75px #000b;background:#20252b;padding:20px;color:#f0f3f6}
+#FranchiseExplorerConfigPage .fx-modal-dialog {width:min(100%,540px);max-height:calc(100dvh - 32px);overflow-y:auto;min-width:0;border:1px solid #727272;border-radius:14px;box-shadow:0 20px 75px #000b;background:#262626;padding:20px;color:#f3f3f3}
 #FranchiseExplorerConfigPage .fx-modal-dialog h3 {font-size:1.2rem;margin:0}
 #FranchiseExplorerConfigPage .fx-modal-header {display:flex;gap:12px;justify-content:space-between;align-items:center}
-#FranchiseExplorerConfigPage .fx-modal-dialog p {color:#b6c2cd}
+#FranchiseExplorerConfigPage .fx-modal-dialog p {color:#c2c2c2}
 #FranchiseExplorerConfigPage .fx-modal-dialog .fx-row {margin-bottom:0}
 #FranchiseExplorerConfigPage .fx-modal-dialog .fx-range-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
 #FranchiseExplorerConfigPage .fx-wrap.fx-compact .fx-modal-dialog .fx-range-grid {grid-template-columns:minmax(0,1fr)}
@@ -178,33 +178,33 @@
 #FranchiseExplorerConfigPage .fx-row-create .fx-field{flex:1 1 210px;margin:0}
 #FranchiseExplorerConfigPage .fx-row-create .fx-btn{flex:0 1 auto}
 #FranchiseExplorerConfigPage .fx-rows-list{display:grid;gap:12px;min-width:0}
-#FranchiseExplorerConfigPage .fx-row-card{min-width:0;border:1px solid var(--fx-border);border-radius:12px;background:#192029;padding:13px}
+#FranchiseExplorerConfigPage .fx-row-card{min-width:0;border:1px solid var(--fx-border);border-radius:12px;background:#212121;padding:13px}
 #FranchiseExplorerConfigPage .fx-row-head{display:flex;gap:9px;align-items:end;flex-wrap:wrap}
 #FranchiseExplorerConfigPage .fx-row-head .fx-field{flex:1 1 165px;margin:0}
-#FranchiseExplorerConfigPage .fx-library-search{margin-top:12px;display:grid;gap:8px;background:#111a22;border:1px solid #3c4d59;padding:12px;border-radius:9px;min-width:0}
+#FranchiseExplorerConfigPage .fx-library-search{margin-top:12px;display:grid;gap:8px;background:#1a1a1a;border:1px solid #4a4a4a;padding:12px;border-radius:9px;min-width:0}
 #FranchiseExplorerConfigPage .fx-library-search input{min-width:0;width:100%;box-sizing:border-box}
-#FranchiseExplorerConfigPage .fx-library-result{display:flex;gap:9px;align-items:center;min-width:0;padding:7px 4px;border-top:1px solid #39434c;flex-wrap:wrap}
+#FranchiseExplorerConfigPage .fx-library-result{display:flex;gap:9px;align-items:center;min-width:0;padding:7px 4px;border-top:1px solid #424242;flex-wrap:wrap}
 #FranchiseExplorerConfigPage .fx-library-result span{min-width:100px;flex:1;overflow-wrap:anywhere;font-size:.87rem}
 #FranchiseExplorerConfigPage .fx-library-result .fx-btn{flex:none}
 #FranchiseExplorerConfigPage .fx-library-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-#FranchiseExplorerConfigPage .fx-library-status{font-size:.8rem;color:#b2c1cb}
+#FranchiseExplorerConfigPage .fx-library-status{font-size:.8rem;color:#bebebe}
 #FranchiseExplorerConfigPage .fx-row-drag{cursor:grab;min-width:40px;font-size:1.15rem;touch-action:manipulation}
-#FranchiseExplorerConfigPage .fx-row-card.fx-row-drag-target{border-color:#2de0ee;background:#1d3440}
+#FranchiseExplorerConfigPage .fx-row-card.fx-row-drag-target{border-color:#00a4dc;background:#2e2e2e}
 #FranchiseExplorerConfigPage .fx-row-pickers{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-#FranchiseExplorerConfigPage .fx-row-pickers details{flex:1 1 230px;min-width:0;border:1px solid #475462;border-radius:9px;padding:10px}
+#FranchiseExplorerConfigPage .fx-row-pickers details{flex:1 1 230px;min-width:0;border:1px solid #555555;border-radius:9px;padding:10px}
 #FranchiseExplorerConfigPage .fx-row-pickers summary{cursor:pointer;font-weight:650}
 #FranchiseExplorerConfigPage .fx-row-option{display:flex;gap:8px;align-items:center;padding:7px 1px;font-size:.88rem;line-height:1.4;min-width:0;overflow-wrap:anywhere}
 #FranchiseExplorerConfigPage .fx-row-option input{flex:none;width:18px;height:18px}
 #FranchiseExplorerConfigPage .fx-row-included{margin-top:11px;display:grid;gap:6px}
-#FranchiseExplorerConfigPage .fx-row-included-toggle{margin-top:12px;border:1px solid #475462;border-radius:9px;min-width:0;background:#141e26}
-#FranchiseExplorerConfigPage .fx-row-included-toggle>summary{cursor:pointer;padding:12px;font-weight:650;color:#e6f4fa;user-select:none}
-#FranchiseExplorerConfigPage .fx-row-included-toggle>summary:focus-visible{outline:2px solid #49d9e9;outline-offset:2px}
+#FranchiseExplorerConfigPage .fx-row-included-toggle{margin-top:12px;border:1px solid #555555;border-radius:9px;min-width:0;background:#1d1d1d}
+#FranchiseExplorerConfigPage .fx-row-included-toggle>summary{cursor:pointer;padding:12px;font-weight:650;color:#f0f0f0;user-select:none}
+#FranchiseExplorerConfigPage .fx-row-included-toggle>summary:focus-visible{outline:2px solid #52c5f0;outline-offset:2px}
 #FranchiseExplorerConfigPage .fx-row-included-toggle .fx-row-included{padding:0 9px 10px;margin-top:0}
-#FranchiseExplorerConfigPage .fx-row-included-item{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border-radius:7px;background:#12191f;border:1px solid #394551}
+#FranchiseExplorerConfigPage .fx-row-included-item{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border-radius:7px;background:#181818;border:1px solid #454545}
 #FranchiseExplorerConfigPage .fx-row-included-item>span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:.85rem}
 #FranchiseExplorerConfigPage .fx-row-included-item button{padding:6px 9px;min-height:36px}
 #FranchiseExplorerConfigPage .fx-row-included-item .fx-row-grip{cursor:grab}
-#FranchiseExplorerConfigPage .fx-row-drag-target{outline:2px dashed #49d9e9}
+#FranchiseExplorerConfigPage .fx-row-drag-target{outline:2px dashed #52c5f0}
 @container (max-width:580px){#FranchiseExplorerConfigPage .fx-row-head .fx-field{flex-basis:100%}#FranchiseExplorerConfigPage .fx-row-create .fx-btn{flex:1 1 auto}}
 /* v0.8.0.1: keep the bulk-selection checkbox left of each result. */
 #FranchiseExplorerConfigPage .fx-library-result {
@@ -264,11 +264,43 @@
   #FranchiseExplorerConfigPage .fx-row-included-item {flex-wrap:wrap !important;}
   #FranchiseExplorerConfigPage .fx-row-included-item>span {flex:1 1 100%;width:100%;}
 }
+/* v0.8.9.16 Jellyfin-native theme layer: the editor now matches the Jellyfin
+   dashboard's own controls (raised #303030 buttons, #292929 inputs, #00a4dc
+   accent, 0.2em corners, the dashboard font) instead of a separate palette. */
+#FranchiseExplorerConfigPage {--fx-card:#1c1c1c;--fx-border:rgba(255,255,255,.08);--fx-text:rgba(255,255,255,.87);--fx-muted:rgba(255,255,255,.6);--fx-accent:#00a4dc;font-family:inherit}
+#FranchiseExplorerConfigPage h1,#FranchiseExplorerConfigPage h2,#FranchiseExplorerConfigPage h3 {font-weight:500}
+#FranchiseExplorerConfigPage .fx-eyebrow {font-weight:600;letter-spacing:.1em}
+#FranchiseExplorerConfigPage .fx-panel {border:0;border-radius:.3em;box-shadow:none}
+#FranchiseExplorerConfigPage .fx-warning {border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-btn {background:#303030!important;color:rgba(255,255,255,.87)!important;border:0!important;border-radius:.2em!important;font-weight:500!important}
+#FranchiseExplorerConfigPage .fx-btn:hover {background:#3a3a3a!important}
+#FranchiseExplorerConfigPage .fx-btn:focus-visible {outline:2px solid #00a4dc}
+#FranchiseExplorerConfigPage .fx-btn-primary {background:#00a4dc!important;color:#fff!important}
+#FranchiseExplorerConfigPage .fx-btn-primary:hover {background:#0cb0e8!important}
+#FranchiseExplorerConfigPage .fx-btn-danger {background:rgba(204,51,51,.15)!important;color:#ff8f8f!important}
+#FranchiseExplorerConfigPage .fx-btn-danger:hover {background:rgba(204,51,51,.3)!important}
+#FranchiseExplorerConfigPage .fx-field input,#FranchiseExplorerConfigPage .fx-field textarea,#FranchiseExplorerConfigPage .fx-field select,#FranchiseExplorerConfigPage input.fx-input {background:#292929!important;border:1px solid #292929!important;border-radius:.2em!important;color:#fff!important}
+#FranchiseExplorerConfigPage .fx-field input:focus,#FranchiseExplorerConfigPage .fx-field textarea:focus,#FranchiseExplorerConfigPage .fx-field select:focus,#FranchiseExplorerConfigPage input.fx-input:focus {border-color:#00a4dc!important;box-shadow:none!important}
+#FranchiseExplorerConfigPage .fx-field select option {background:#292929}
+#FranchiseExplorerConfigPage .fx-tree-item {border-radius:.2em;color:var(--fx-text)}
+#FranchiseExplorerConfigPage .fx-tree-item:hover {background:rgba(255,255,255,.06)}
+#FranchiseExplorerConfigPage .fx-tree-item[aria-current="true"] {background:rgba(0,164,220,.15);border-color:transparent;box-shadow:inset 3px 0 0 #00a4dc;color:#fff;font-weight:500}
+#FranchiseExplorerConfigPage .fx-counter {background:rgba(255,255,255,.08)}
+#FranchiseExplorerConfigPage .fx-scope,#FranchiseExplorerConfigPage .fx-tv-range,#FranchiseExplorerConfigPage .fx-row-card,#FranchiseExplorerConfigPage .fx-library-search,#FranchiseExplorerConfigPage .fx-row-included-toggle,#FranchiseExplorerConfigPage .fx-image-tile {background:rgba(255,255,255,.04);border:0;border-radius:.2em;color:var(--fx-text)}
+#FranchiseExplorerConfigPage .fx-row-pickers details,#FranchiseExplorerConfigPage .fx-row-included-item,#FranchiseExplorerConfigPage .fx-collection-result,#FranchiseExplorerConfigPage .fx-result {background:#242424;border:0;border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-result:hover,#FranchiseExplorerConfigPage .fx-collection-result:hover {background:#2e2e2e}
+#FranchiseExplorerConfigPage .fx-art-preview,#FranchiseExplorerConfigPage .fx-image-display {background:#181818;border:1px dashed rgba(255,255,255,.15);border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-info {border-left-color:#00a4dc;border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-status {background:rgba(255,255,255,.05);border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-empty {border-radius:.2em}
+#FranchiseExplorerConfigPage .fx-modal-dialog {background:#202020;border:0;border-radius:.3em;box-shadow:0 0 30px rgba(0,0,0,.6)}
+#FranchiseExplorerConfigPage .fx-row-card.fx-row-drag-target,#FranchiseExplorerConfigPage .fx-row-drag-target {outline:2px dashed #00a4dc}
+#FranchiseExplorerConfigPage input[type="checkbox"] {accent-color:#00a4dc}
 </style>
 <div data-role="content" class="fx-wrap">
   <div class="fx-heading">
     <div>
-      <h1>Franchise Explorer <small>v0.8.9.15 preview</small></h1>
+      <h1>Franchise Explorer <small>v0.8.9.16 preview</small></h1>
       <p class="fx-muted">Organize virtual franchises, eras, phases and viewing references without moving media files.</p>
     </div>
   </div>

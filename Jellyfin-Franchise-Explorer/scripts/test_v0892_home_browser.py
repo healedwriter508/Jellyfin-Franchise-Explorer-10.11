@@ -18,7 +18,7 @@ assert (REPO / "docs/Gost1o1-logo.png").is_file()
 assert (REPO / "docs/franchise-explorer-preview.png").is_file()
 README = (REPO / "README.md").read_text()
 assert 'src="docs/Gost1o1-logo.png"' in README
-assert "docs/franchise-explorer-preview.png" in README
+assert "docs/screenshots/user-guide/00-franchise-explorer-full-page.png" in README
 
 ORIGIN = "http://jellyfin.test"
 USER = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -163,9 +163,9 @@ with sync_playwright() as p:
             page.wait_for_function("document.querySelector('.fe-resume-art img')?.dataset.feArtworkKind === 'poster'")
         tile = page.locator("#franchise-explorer-my-media-tile")
         assert tile.count() == 1
-        assert page.evaluate("window.__franchiseExplorerUiVersion") == "0.8.9.15"
-        assert tile.get_attribute("data-fe-version") == "0.8.9.15"
-        assert page.locator("#franchise-timeline-resume").get_attribute("data-fe-version") == "0.8.9.15"
+        assert page.evaluate("window.__franchiseExplorerUiVersion") == "0.8.9.16"
+        assert tile.get_attribute("data-fe-version") == "0.8.9.16"
+        assert page.locator("#franchise-timeline-resume").get_attribute("data-fe-version") == "0.8.9.16"
         before_menu = page.url
         # The options button is hidden until the tile is hovered or focused.
         # Playwright's button.click() does not reliably establish hover when the

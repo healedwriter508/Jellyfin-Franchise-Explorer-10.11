@@ -1,5 +1,5 @@
 /*
- * Jellyfin Franchise Explorer — opt-in Jellyfin Web integration (v0.8.9.15).
+ * Jellyfin Franchise Explorer — opt-in Jellyfin Web integration (v0.8.9.16).
  * Adds ONE visual link in the existing "My Media" row. It does not create a
  * Jellyfin library, alter user preferences, or modify the server's media.
  * Requires a compatible JavaScript injector to run in jellyfin-web.
@@ -9,11 +9,12 @@
   'use strict';
 
   // Programmatic registration plus a manual fallback must not create two observers.
-  window.__franchiseExplorerUiVersion = '0.8.9.15';
+  window.__franchiseExplorerUiVersion = '0.8.9.16';
   if (window.__franchiseExplorerMyMediaTileLoaded) return;
   window.__franchiseExplorerMyMediaTileLoaded = true;
-  // Replaced with a data URI when registered by the plugin host service.
-  const TILE_ART_DATA = '__FE_TILE_ART_DATA_URL__';
+  // Replaced with the cached /FranchiseExplorer/TileArt route by the plugin
+  // host service (no longer an inline base64 image on every page load).
+  const TILE_ART_URL = '__FE_TILE_ART_URL__';
 
   const TILE_ID = 'franchise-explorer-my-media-tile';
   const STYLE_ID = 'franchise-explorer-my-media-style';
@@ -22,6 +23,15 @@
   let observedResize = null;
   let activeSettingsMenu = null;
 
+  function serverBase() {
+    const match = (window.location.pathname || '').match(/^(.*?)\/web(?:\/|$)/i);
+    return match ? match[1] : '';
+  }
+  // Jellyfin Web routes: #/home, #/home.html, #!/home.html, or the bare index.
+  function onHomeRoute() {
+    const hash = (window.location.hash || '').replace(/^#!?/, '');
+    return hash === '' || hash === '/' || /^\/?home(?:\.html)?(?:\?|$)/i.test(hash);
+  }
   function browseUrl() {
     // Keep Jellyfin base-path prefixes (e.g. /jellyfin/web/index.html).
     const pathname = window.location.pathname || '';
@@ -47,26 +57,20 @@
         justify-content:center;overflow:hidden;box-sizing:border-box;
         width:100%;height:100%;margin:0!important;padding:0!important;
         border-radius:inherit;
-        background:linear-gradient(130deg,#10232f 0%,#105062 55%,#112b37 100%);
+        background:linear-gradient(130deg,#202020 0%,#0086b3 55%,#242424 100%);
         background-size:cover;background-position:center center;
         pointer-events:none;
       }
-      #${TILE_ID} .fe-tile-icon {
-        display:block!important;position:absolute;left:50%;top:43%;
-        transform:translate(-50%,-50%);margin:0!important;padding:0!important;
-        color:#cbf7fa;font:bold clamp(32px,4vw,58px)/1 Arial,sans-serif;
-        text-align:center;text-shadow:0 2px 5px #001c24;
-      }
       #${TILE_ID} .fe-tile-art.fe-cinematic-art::before {
         content:"";position:absolute;inset:0;z-index:0;
-        background:rgba(2,12,19,.27);backdrop-filter:blur(2px);
+        background:rgba(10,10,10,.27);backdrop-filter:blur(2px);
         pointer-events:none;
       }
       #${TILE_ID} .fe-tile-art-title {
         display:block!important;position:absolute;z-index:1;
         left:7px;right:7px;top:50%;bottom:auto;transform:translateY(-50%);
         margin:0!important;padding:0!important;text-align:center;color:white;
-        font:bold clamp(18px,1.75vw,30px)/1.2 Arial,sans-serif;
+        font-weight:bold;font-size:clamp(18px,1.75vw,30px);line-height:1.2;font-family:inherit;
         text-shadow:0 2px 6px #000,0 4px 14px #000;
       }
       #${TILE_ID} .fe-settings-holder {
@@ -78,7 +82,7 @@
       #${TILE_ID} .fe-settings-toggle {
         display:flex;align-items:center;justify-content:center;width:28px;height:28px;
         border:0;border-radius:50%;background:transparent;color:white;cursor:pointer;
-        font:bold 20px/1 Arial,sans-serif;text-shadow:0 1px 4px #001b25;
+        font-weight:bold;font-size:20px;line-height:1;font-family:inherit;text-shadow:0 1px 4px #000;
         opacity:0;pointer-events:none;transition:opacity .15s ease;
       }
       #${TILE_ID}:hover .fe-settings-toggle,
@@ -89,22 +93,21 @@
         #${TILE_ID} .fe-settings-toggle {opacity:1;pointer-events:auto;}
       }
       #${TILE_ID} .fe-settings-toggle:hover,
-      #${TILE_ID} .fe-settings-toggle:focus-visible {background:#075a71;outline:2px solid #74dcec;}
+      #${TILE_ID} .fe-settings-toggle:focus-visible {background:rgba(255,255,255,.15);outline:0;}
       #${TILE_ID} .fe-settings-menu {
-        position:absolute;right:0;bottom:33px;min-width:224px;max-width:min(85vw,280px);padding:5px;
-        background:#182430;color:#fff;border:1px solid #4b6878;border-radius:9px;
-        box-shadow:0 8px 24px #000a;box-sizing:border-box;
+        position:absolute;right:0;bottom:33px;min-width:224px;max-width:min(85vw,280px);padding:.4em 0;
+        background:#202020;color:#fff;border:0;border-radius:.2em;
+        box-shadow:0 0 20px rgba(0,0,0,.6);box-sizing:border-box;
       }
       #${TILE_ID} .fe-settings-menu[hidden] {display:none!important;}
       #${TILE_ID} .fe-settings-link {
-        display:block;padding:11px 10px;color:#fff;text-decoration:none;
-        font:600 13px/1.3 Arial,sans-serif;border-radius:6px;white-space:nowrap;
+        display:block;padding:.85em 1.2em;color:#fff;text-decoration:none;
+        font-size:.95rem;line-height:1.3;font-family:inherit;border-radius:0;white-space:nowrap;
       }
       #${TILE_ID} .fe-settings-link:hover,
-      #${TILE_ID} .fe-settings-link:focus-visible {background:#244a5a;outline:1px solid #53c9df;}
-      #${TILE_ID}:focus-visible { outline:3px solid var(--theme-primary-color,#08bdd0);outline-offset:2px; }
+      #${TILE_ID} .fe-settings-link:focus-visible {background:rgba(255,255,255,.1);outline:0;}
+      #${TILE_ID}:focus-visible { outline:3px solid var(--theme-primary-color,#00a4dc);outline-offset:2px; }
       @media(max-width:540px){
-        #${TILE_ID} .fe-tile-icon{font-size:36px}
         #${TILE_ID} .fe-tile-art-title{font-size:14px}
       }
     `;
@@ -211,7 +214,7 @@
       }
     }
     tile.id = TILE_ID;
-    tile.setAttribute('data-fe-version','0.8.9.15');
+    tile.setAttribute('data-fe-version','0.8.9.16');
     tile.setAttribute('aria-label','Open Franchises');
     tile.setAttribute('href',browseUrl());
     // Native actions from a cloned Collections card cannot operate on the
@@ -219,11 +222,11 @@
     tile.querySelectorAll('.cardMenuButton,.cardOverlayButton,button').forEach(el=>el.remove());
     const imageHost=(tile.querySelector('.cardImageContainer')||tile.querySelector('.poster')||tile.querySelector('.cardImage')||tile.querySelector('.cardScalable'));
     const art=document.createElement('span');art.className='fe-tile-art';
-    art.innerHTML='<span class="fe-tile-icon" aria-hidden="true">F</span><span class="fe-tile-art-title">Franchises</span>';
-    if (TILE_ART_DATA.startsWith('data:image/')) {
+    art.innerHTML='<span class="fe-tile-art-title">Franchises</span>';
+    if (TILE_ART_URL.startsWith('/FranchiseExplorer/')) {
       art.classList.add('fe-cinematic-art');
-      art.style.backgroundImage='linear-gradient(0deg,rgba(0,9,17,.7),transparent 68%),url("'+TILE_ART_DATA+'")';
-      art.querySelector('.fe-tile-icon')?.remove();
+      // Keep the base gradient as the last layer in case the image is unavailable.
+      art.style.backgroundImage='linear-gradient(0deg,rgba(0,0,0,.72),transparent 68%),url("'+serverBase()+TILE_ART_URL+'"),linear-gradient(130deg,#1f1f1f 0%,#383838 55%,#1c1c1c 100%)';
     }
     if(imageHost){
       // Remove cloned Collections artwork and its inline background image,
@@ -305,6 +308,9 @@
 
   function update() {
     queued = false;
+    // The tile only exists on Home. Skip all DOM scanning elsewhere (e.g. while
+    // the video player or a details page mutates the DOM continuously).
+    if (!onHomeRoute()) return;
     const container = findMyMediaContainer();
     if (!container) return;
     const ref = findCollectionsCard(container) || referenceCard(container);
@@ -338,7 +344,7 @@
       if (sourceScalable) observedResize.observe(sourceScalable);
     }
     tile.setAttribute('href',browseUrl());
-    tile.setAttribute('data-fe-version','0.8.9.15');
+    tile.setAttribute('data-fe-version','0.8.9.16');
   }
 
   function schedule() {
@@ -368,7 +374,7 @@
   window.addEventListener('resize', schedule);
 })();
 
-/* v0.8.9.15 — Per-user franchise resume cards and in-place playback shortcuts on Jellyfin Web's home.
+/* v0.8.9.16 — Per-user franchise resume cards and in-place playback shortcuts on Jellyfin Web's home.
  * Jellyfin regularly replaces the home DOM, including after a refresh and
  * client-side navigation. Reattach the same widget rather than waiting for the
  * next API poll, and keep a short session-scoped cache for hard refreshes.
@@ -378,21 +384,27 @@
   'use strict';
   // An older Injector script may still be running. Never let its shared v1
   // marker block the newer in-place playback actions from initializing.
-  if (window.__franchiseTimelineHomeVersion === '0.8.9.15') return;
-  window.__franchiseTimelineHomeVersion = '0.8.9.15';
+  if (window.__franchiseTimelineHomeVersion === '0.8.9.16') return;
+  window.__franchiseTimelineHomeVersion = '0.8.9.16';
   window.__franchiseTimelineHomeLoaded = true;
   const WIDGET_ID = 'franchise-timeline-resume';
   // Versioned styles take precedence if an earlier Injector script left its
   // stylesheet in the page before the new registration initialized.
-  const STYLE_ID = 'franchise-timeline-resume-style-v08915';
+  const STYLE_ID = 'franchise-timeline-resume-style-v08916';
   const NATIVE_HIDE_STYLE_ID = 'fe-native-franchise-row-filter-style';
   const NATIVE_HIDE_CLASS = 'fe-native-franchise-row-hidden';
-  const CACHE_PREFIX = 'fe-franchise-home-v08915:';
+  const CACHE_PREFIX = 'fe-franchise-home-v08916:';
   const MAX_CARDS = 8;
   const phonePortrait = () => window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches;
   const GUID = /^[a-f0-9]{32}$|^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
   const serverPrefix = () => ((location.pathname || '').match(/^(.*?)\/web(?:\/|$)/i) || [,''])[1] || '';
   const serverPath = path => serverPrefix() + path;
+  // Only Jellyfin Home shows this widget. Everywhere else (details pages, the
+  // video player) skip DOM work and API polling entirely.
+  const onHomeRoute = () => {
+    const hash = (location.hash || '').replace(/^#!?/, '');
+    return hash === '' || hash === '/' || /^\/?home(?:\.html)?(?:\?|$)/i.test(hash);
+  };
   let lastFetch = 0, busy = false, queuedMount = false, cards = [], authScope = '', renderedSignature = '';
   let confirmedEmpty = false;
   let widget = null;
@@ -549,40 +561,43 @@
       // Legacy Injector registrations may leave a second tracker with the
       // exact same DOM id. Hide it so its native confirm/resume menu cannot
       // be clicked accidentally after the upgraded script becomes active.
-      '#'+WIDGET_ID+':not([data-fe-version="0.8.9.15"]){display:none!important}',
-      '#'+WIDGET_ID+'{box-sizing:border-box;width:100%;min-width:0;padding:10px max(16px,2.5vw) 16px;color:#fff}',
-      '#'+WIDGET_ID+' h2{font-size:1.32rem;margin:8px 0 15px;font-weight:600}',
-      '#'+WIDGET_ID+' .fe-resume-grid{display:flex;gap:16px;flex-wrap:wrap;align-items:stretch}',
-      '#'+WIDGET_ID+' .fe-resume-card{display:flex;flex:1 1 445px;max-width:590px;min-width:0;min-height:164px;position:relative;overflow:visible;background:#202b37;border:1px solid #4b5b69;border-radius:11px;box-sizing:border-box}',
+      '#'+WIDGET_ID+':not([data-fe-version="0.8.9.16"]){display:none!important}',
+      '#'+WIDGET_ID+'{box-sizing:border-box;width:100%;min-width:0;color:inherit;margin-bottom:1.8em}',
+      '#'+WIDGET_ID+' h2{margin:.6em 0 .5em}',
+      '#'+WIDGET_ID+' .fe-resume-title-row{display:flex;align-items:center}',
+      '#'+WIDGET_ID+' .fe-resume-grid{display:flex;gap:1.2em;flex-wrap:wrap;align-items:stretch;padding-top:.3em;padding-bottom:.3em}',
+      '#'+WIDGET_ID+' .fe-resume-card{display:flex;flex:1 1 445px;max-width:600px;min-width:0;min-height:164px;position:relative;overflow:visible;background:rgba(255,255,255,.05);border:0;border-radius:.2em;box-sizing:border-box;transition:background .15s}',
+      '#'+WIDGET_ID+' .fe-resume-card:hover,.fe-resume-card:focus-within{background:rgba(255,255,255,.09)}',
       '#'+WIDGET_ID+' .fe-resume-card.fe-resume-menu-open{z-index:20}',
-      '#'+WIDGET_ID+' .fe-resume-art{display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 39%;min-width:0;overflow:hidden;border:0;padding:0;cursor:pointer;border-radius:10px 0 0 10px;background:linear-gradient(145deg,#143c4a,#10232d);color:#82b8c5;text-decoration:none}',
-      '#'+WIDGET_ID+' .fe-resume-art.fe-resume-landscape::before,#'+WIDGET_ID+' .fe-resume-art.fe-resume-poster::before{content:"";position:absolute;inset:-12px;background-image:var(--fe-resume-backdrop);background-size:cover;background-position:center;filter:blur(12px) brightness(.45);opacity:.9}',
+      '#'+WIDGET_ID+' .fe-resume-art{display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 39%;min-width:0;overflow:hidden;border:0;padding:0;cursor:pointer;border-radius:.2em 0 0 .2em;background:#262626;color:rgba(255,255,255,.5);text-decoration:none}',
+      '#'+WIDGET_ID+' .fe-resume-art.fe-resume-landscape::before,'+'#'+WIDGET_ID+' .fe-resume-art.fe-resume-poster::before{content:"";position:absolute;inset:-12px;background-image:var(--fe-resume-backdrop);background-size:cover;background-position:center;filter:blur(12px) brightness(.45);opacity:.9}',
       '#'+WIDGET_ID+' .fe-resume-art img{width:100%;height:100%;position:absolute;inset:0;object-fit:contain;z-index:1}',
       '#'+WIDGET_ID+' .fe-resume-art img.fe-resume-portrait{object-fit:contain}',
+      '#'+WIDGET_ID+' .fe-resume-art::after{content:"";position:absolute;inset:0;z-index:2;background:rgba(0,0,0,.35) url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%2711%27 fill=%27%2300a4dc%27/%3E%3Cpath d=%27M9.5 7.5v9l7-4.5z%27 fill=%27white%27/%3E%3C/svg%3E") center/52px no-repeat;opacity:0;transition:opacity .15s}',
+      '#'+WIDGET_ID+' .fe-resume-art:hover::after,'+'#'+WIDGET_ID+' .fe-resume-art:focus-visible::after{opacity:1}',
       '#'+WIDGET_ID+' .fe-resume-art span{font-size:3rem;opacity:.55}',
-      '#'+WIDGET_ID+' .fe-resume-content{flex:1;min-width:0;padding:15px 18px;display:flex;flex-direction:column;gap:5px}',
-      '#'+WIDGET_ID+' .fe-resume-franchise{font-size:.71rem;letter-spacing:.08em;font-weight:700;text-transform:uppercase;color:#c5dce9;line-height:1.3}',
-      '#'+WIDGET_ID+' .fe-resume-title{font-size:1.38rem;line-height:1.22;font-weight:700;overflow-wrap:anywhere}',
-      '#'+WIDGET_ID+' .fe-resume-next{font-size:.9rem;color:#f1f5f8;overflow-wrap:anywhere}',
-      '#'+WIDGET_ID+' .fe-resume-status{font-size:.78rem;color:#ccd5e1;margin-top:1px}',
-      '#'+WIDGET_ID+' .fe-resume-progress-label{font-size:.76rem;color:#ccd5e1;margin-top:1px}',
-      '#'+WIDGET_ID+' .fe-resume-progress{height:6px;border-radius:8px;background:#3b4a59;overflow:hidden;margin:2px 0 4px}',
-      '#'+WIDGET_ID+' .fe-resume-progress span{display:block;height:100%;background:#12a9c4;min-width:0}',
-      '#'+WIDGET_ID+' .fe-resume-progress-episode span{background:#36c4e0}',
-      '#'+WIDGET_ID+' .fe-resume-progress-segment span{background:#58baa5}',
-      '#'+WIDGET_ID+' .fe-resume-play{align-self:flex-start;background:#008ca5;color:#fff!important;border:0;cursor:pointer;padding:7px 13px;border-radius:7px;font-size:.84rem;font-weight:600;text-decoration:none;line-height:1.4}',
-      '#'+WIDGET_ID+' .fe-resume-play:hover{background:#00a6bf}',
-      '#'+WIDGET_ID+' .fe-resume-play:disabled,#'+WIDGET_ID+' .fe-resume-art:disabled{opacity:.7;cursor:wait}',
-      '#'+WIDGET_ID+' .fe-resume-menu-holder{position:absolute;top:7px;right:7px;z-index:21}',
-      '#'+WIDGET_ID+' .fe-resume-menu-toggle{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #738899;border-radius:50%;background:#14232eea;color:#fff;font:bold 21px/1 Arial,sans-serif;cursor:pointer;opacity:0;transition:opacity .15s}',
-      '#'+WIDGET_ID+' .fe-resume-card:hover .fe-resume-menu-toggle,#'+WIDGET_ID+' .fe-resume-card:focus-within .fe-resume-menu-toggle,#'+WIDGET_ID+' .fe-resume-menu-toggle[aria-expanded="true"]{opacity:1}',
-      '#'+WIDGET_ID+' .fe-resume-menu{position:absolute;right:0;top:37px;min-width:220px;max-width:min(88vw,280px);padding:5px;background:#162734;color:#fff;border:1px solid #547083;border-radius:9px;box-shadow:0 12px 28px #000c;box-sizing:border-box}',
+      '#'+WIDGET_ID+' .fe-resume-content{flex:1;min-width:0;padding:14px 18px;display:flex;flex-direction:column;gap:5px}',
+      '#'+WIDGET_ID+' .fe-resume-franchise{font-size:.75rem;letter-spacing:.06em;font-weight:500;text-transform:uppercase;color:rgba(255,255,255,.6);line-height:1.3;padding-right:34px}',
+      '#'+WIDGET_ID+' .fe-resume-title{font-size:1.3rem;line-height:1.22;font-weight:500;overflow-wrap:anywhere;color:#fff}',
+      '#'+WIDGET_ID+' .fe-resume-next{font-size:.9rem;color:rgba(255,255,255,.8);overflow-wrap:anywhere}',
+      '#'+WIDGET_ID+' .fe-resume-status,'+'#'+WIDGET_ID+' .fe-resume-progress-label{font-size:.78rem;color:rgba(255,255,255,.6);margin-top:1px}',
+      '#'+WIDGET_ID+' .fe-resume-progress{height:4px;border-radius:2px;background:rgba(255,255,255,.15);overflow:hidden;margin:2px 0 4px}',
+      '#'+WIDGET_ID+' .fe-resume-progress span{display:block;height:100%;background:#00a4dc;min-width:0}',
+      '#'+WIDGET_ID+' .fe-resume-progress-segment span{background:rgba(0,164,220,.6)}',
+      '#'+WIDGET_ID+' .fe-resume-play{display:inline-flex;align-items:center;gap:.4em;align-self:flex-start;margin-top:4px;background:#00a4dc;color:#fff!important;border:0;cursor:pointer;padding:.5em 1em;border-radius:.2em;font:inherit;font-size:.9rem;font-weight:500;text-decoration:none;line-height:1.4}',
+      '#'+WIDGET_ID+' .fe-resume-play:hover{background:#0cb0e8}',
+      '#'+WIDGET_ID+' .fe-resume-play:disabled,'+'#'+WIDGET_ID+' .fe-resume-art:disabled{opacity:.7;cursor:wait}',
+      '#'+WIDGET_ID+' .fe-resume-menu-holder{position:absolute;top:6px;right:6px;z-index:21}',
+      '#'+WIDGET_ID+' .fe-resume-menu-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:#fff;font-weight:bold;font-size:21px;line-height:1;font-family:inherit;cursor:pointer;opacity:.0;transition:opacity .15s,background .15s}',
+      '#'+WIDGET_ID+' .fe-resume-menu-toggle:hover{background:rgba(255,255,255,.12)}',
+      '#'+WIDGET_ID+' .fe-resume-card:hover .fe-resume-menu-toggle,'+'#'+WIDGET_ID+' .fe-resume-card:focus-within .fe-resume-menu-toggle,'+'#'+WIDGET_ID+' .fe-resume-menu-toggle[aria-expanded="true"]{opacity:1}',
+      '#'+WIDGET_ID+' .fe-resume-menu{position:absolute;right:0;top:40px;min-width:230px;max-width:min(88vw,290px);padding:.4em 0;background:#202020;color:#fff;border:0;border-radius:.2em;box-shadow:0 0 20px rgba(0,0,0,.6);box-sizing:border-box}',
       '#'+WIDGET_ID+' .fe-resume-menu[hidden]{display:none!important}',
-      '#'+WIDGET_ID+' .fe-resume-menu button{display:block;width:100%;padding:11px 9px;border:0;border-radius:6px;background:transparent;color:#fff;text-align:left;font:600 13px/1.35 Arial,sans-serif;white-space:normal;cursor:pointer}',
-      '#'+WIDGET_ID+' .fe-resume-menu button:hover,#'+WIDGET_ID+' .fe-resume-menu button:focus-visible{background:#205367;outline:1px solid #42c9e0}',
+      '#'+WIDGET_ID+' .fe-resume-menu button{display:block;width:100%;padding:.85em 1.2em;border:0;border-radius:0;background:transparent;color:#fff;text-align:left;font:inherit;font-size:.95rem;line-height:1.35;white-space:normal;cursor:pointer}',
+      '#'+WIDGET_ID+' .fe-resume-menu button:hover,'+'#'+WIDGET_ID+' .fe-resume-menu button:focus-visible{background:rgba(255,255,255,.1);outline:0}',
       '#'+WIDGET_ID+' .fe-resume-menu button:disabled{opacity:.55;cursor:wait}',
-      '#'+WIDGET_ID+' .fe-resume-wait{padding:16px;border:1px solid #425564;border-radius:10px;color:#bccbd6;background:#1b2631;font-size:.9rem;max-width:590px}',
-      '#'+WIDGET_ID+' a:focus-visible,#'+WIDGET_ID+' button:focus-visible{outline:3px solid #38c5d9;outline-offset:2px}',
+      '#'+WIDGET_ID+' .fe-resume-wait{padding:16px;border:0;border-radius:.2em;color:rgba(255,255,255,.6);background:rgba(255,255,255,.05);font-size:.9rem;max-width:600px}',
+      '#'+WIDGET_ID+' a:focus-visible,'+'#'+WIDGET_ID+' button:focus-visible{outline:2px solid #00a4dc;outline-offset:2px}',
       '@media(hover:none),(pointer:coarse){#'+WIDGET_ID+' .fe-resume-menu-toggle{opacity:1}}',
       '@media(max-width:650px){#'+WIDGET_ID+' .fe-resume-card{flex-basis:100%;min-height:140px}#'+WIDGET_ID+' .fe-resume-content{padding:12px;gap:4px}#'+WIDGET_ID+' .fe-resume-title{font-size:1.06rem}#'+WIDGET_ID+' .fe-resume-art{flex-basis:36%}#'+WIDGET_ID+' .fe-resume-next{font-size:.8rem}}'
     ].join('\n');
@@ -592,38 +607,38 @@
   // TimelineManager renders the SAME list as Browse, but Jellyfin Home does
   // not load Browse's stylesheet. The modal is appended to document.body.
   function ensureHomeTimelineStyle() {
-    if (document.getElementById('fe-home-timeline-dialog-style-v08915')) return;
-    const style=document.createElement('style');style.id='fe-home-timeline-dialog-style-v08915';
+    if (document.getElementById('fe-home-timeline-dialog-style-v08916')) return;
+    const style=document.createElement('style');style.id='fe-home-timeline-dialog-style-v08916';
     style.textContent=[
-      '.timeline-dialog-mask{position:fixed;inset:0;z-index:2147483630;background:#050709e8;backdrop-filter:blur(2px);display:grid;place-items:center;padding:12px;overscroll-behavior:contain}',
+      '.timeline-dialog-mask{position:fixed;inset:0;z-index:2147483630;background:rgba(0,0,0,.7);display:grid;place-items:center;padding:12px;overscroll-behavior:contain}',
       '.timeline-dialog-mask.fe-home-chronological-modal .timeline-dialog{width:min(830px,100%);max-height:min(88dvh,810px)}',
-      '.timeline-dialog{box-sizing:border-box;width:min(920px,100%);max-height:min(92dvh,900px);min-width:0;overflow-y:auto;background:#1b2027;color:#f2f7fb;border:1px solid #647180;border-radius:16px;padding:clamp(13px,2vw,26px);box-shadow:0 22px 70px #000b;font:16px/1.4 system-ui,sans-serif}',
+      '.timeline-dialog{box-sizing:border-box;width:min(920px,100%);max-height:min(92dvh,900px);min-width:0;overflow-y:auto;background:#202020;color:rgba(255,255,255,.87);border:0;border-radius:.3em;padding:clamp(13px,2vw,26px);box-shadow:0 0 30px rgba(0,0,0,.6);font-size:16px;line-height:1.4;font-family:inherit}',
       '.timeline-dialog *{box-sizing:border-box}',
       '.timeline-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}',
-      '.timeline-dialog-header h2{margin:5px 0;font-size:clamp(1.2rem,3vw,1.8rem)}',
-      '.timeline-dialog .btn{border:1px solid #566170;border-radius:9px;background:#272e38;color:#f3f8fc;padding:10px 13px;min-height:42px;font:650 .9rem/1.2 system-ui,sans-serif;cursor:pointer}',
-      '.timeline-dialog .btn:hover{background:#3d4653}',
-      '.timeline-dialog .btn.btn-primary{background:#079eb3;border-color:#079eb3;color:#03171a}',
-      '.timeline-dialog .btn.btn-primary:hover{background:#23d0df}',
-      '.timeline-dialog .field{background:#1a1f27;color:#fff;border:1px solid #66717d;border-radius:9px;padding:10px;min-height:44px;min-width:0}',
-      '.timeline-dialog button:focus-visible,.timeline-dialog select:focus-visible{outline:3px solid #5deafa;outline-offset:2px}',
+      '.timeline-dialog-header h2{margin:5px 0;font-size:clamp(1.2rem,3vw,1.6rem);font-weight:500}',
+      '.timeline-dialog .btn{border:0;border-radius:.2em;background:#303030;color:rgba(255,255,255,.87);padding:10px 13px;min-height:42px;font-weight:600;font-size:.9rem;line-height:1.2;font-family:inherit;cursor:pointer}',
+      '.timeline-dialog .btn:hover{background:#3a3a3a}',
+      '.timeline-dialog .btn.btn-primary{background:#00a4dc;border-color:#00a4dc;color:#fff}',
+      '.timeline-dialog .btn.btn-primary:hover{background:#0cb0e8}',
+      '.timeline-dialog .field{background:#292929;color:#fff;border:1px solid #292929;border-radius:.2em;padding:10px;min-height:44px;min-width:0}',
+      '.timeline-dialog button:focus-visible,.timeline-dialog select:focus-visible{outline:2px solid #00a4dc;outline-offset:2px}',
       '.timeline-feedback{color:#e7c485;font-size:.91rem;line-height:1.45;margin:12px 0}',
       '.timeline-chooser{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:15px 0}',
-      '.timeline-watch-choice{display:flex;align-items:center;gap:9px;flex-wrap:wrap;width:100%;padding:12px;border:1px solid #3d8498;border-radius:10px;background:#122934}',
+      '.timeline-watch-choice{display:flex;align-items:center;gap:9px;flex-wrap:wrap;width:100%;padding:12px;border:0;border-radius:.2em;background:#292929}',
       '.timeline-watch-choice[hidden]{display:none!important}',
       '.timeline-watch-choice p{width:100%;margin:0 0 5px;font-weight:600;line-height:1.45}',
       '.timeline-device{max-width:100%;min-width:min(100%,230px)}',
-      '.timeline-progress-track{height:7px;background:#354353;border-radius:999px;overflow:hidden;margin-top:6px}',
-      '.timeline-progress-fill{height:100%;background:#12b7cb;border-radius:999px}',
+      '.timeline-progress-track{height:5px;background:rgba(255,255,255,.15);border-radius:999px;overflow:hidden;margin-top:6px}',
+      '.timeline-progress-fill{height:100%;background:#00a4dc;border-radius:999px}',
       '.timeline-entry-list{display:grid;gap:8px;min-width:0}',
-      '.timeline-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#242a33;border:1px solid #465363;border-radius:10px;padding:12px}',
+      '.timeline-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#292929;border:0;border-radius:.2em;padding:12px}',
       '.timeline-entry-text{display:grid;gap:6px;min-width:0;flex:1;overflow-wrap:anywhere}',
       '.timeline-entry-text strong{font-size:.94rem}',
-      '.timeline-entry-text small{color:#b9c5d0;font-size:.76rem}',
+      '.timeline-entry-text small{color:#c4c4c4;font-size:.76rem}',
       '.timeline-entry-actions{display:flex;gap:6px;flex-wrap:wrap}',
       '.timeline-entry-actions .btn{min-height:42px;font-size:.82rem;padding:8px}',
-      '.timeline-complete{border-color:#267965}',
-      '.timeline-dialog .shelf-empty{padding:14px;color:#b9c5d0}',
+      '.timeline-complete{box-shadow:inset 3px 0 0 #00a4dc}',
+      '.timeline-dialog .shelf-empty{padding:14px;color:#c4c4c4}',
       '@media(max-width:650px){.timeline-entry{align-items:stretch;flex-direction:column}.timeline-entry-actions{display:grid;grid-template-columns:1fr 1fr}.timeline-chooser .btn{flex:1}.timeline-dialog{max-height:96dvh}}'
     ].join('\n');document.head.appendChild(style);
   }
@@ -634,18 +649,18 @@
     if(document.getElementById('fe-reset-confirmation'))return Promise.resolve(false);
     return new Promise(resolve=>{
       const mask=document.createElement('div');mask.id='fe-reset-confirmation';
-      mask.style.cssText='position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;padding:16px;background:#050709d9;backdrop-filter:blur(3px)';
+      mask.style.cssText='position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.7)';
       const dialog=document.createElement('section');dialog.setAttribute('role','dialog');
       dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','fe-reset-question');
-      dialog.style.cssText='width:min(440px,100%);box-sizing:border-box;background:#1d252f;color:#fff;border:1px solid #647180;border-radius:15px;padding:25px;box-shadow:0 20px 65px #000b;font:16px/1.45 system-ui,sans-serif';
+      dialog.style.cssText='width:min(440px,100%);box-sizing:border-box;background:#202020;color:#fff;border:0;border-radius:.3em;padding:25px;box-shadow:0 0 30px rgba(0,0,0,.6);font-size:16px;line-height:1.45;font-family:inherit';
       const question=document.createElement('h2');question.id='fe-reset-question';
       question.textContent='Are you sure you want to reset '+franchise+' chronological timeline?';
-      question.style.cssText='font:650 1.16rem/1.5 system-ui,sans-serif;margin:0 0 24px';
+      question.style.cssText='font-weight:500;font-size:1.16rem;line-height:1.5;font-family:inherit;margin:0 0 24px';
       const controls=document.createElement('div');controls.style.cssText='display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap';
       const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
       const reset=document.createElement('button');reset.type='button';reset.textContent='Reset timeline';
-      for(const button of [cancel,reset])button.style.cssText='min-height:43px;border:1px solid #607184;border-radius:8px;padding:9px 14px;background:#2b3643;color:#fff;font:600 14px system-ui,sans-serif;cursor:pointer';
-      reset.style.background='#0b9caf';reset.style.borderColor='#0b9caf';reset.style.color='#03191c';
+      for(const button of [cancel,reset])button.style.cssText='min-height:43px;border:0;border-radius:.2em;padding:9px 16px;background:#303030;color:#fff;font-weight:600;font-size:14px;font-family:inherit;cursor:pointer';
+      reset.style.background='#00a4dc';reset.style.borderColor='#00a4dc';reset.style.color='#fff';
       const priorFocus=document.activeElement;
       const finish=accepted=>{mask.remove();document.removeEventListener('keydown',onKey,true);if(priorFocus?.isConnected)priorFocus.focus();resolve(accepted);};
       const onKey=event=>{
@@ -665,7 +680,7 @@
   function homeFeedback(message, error=false) {
     let notice=document.getElementById('fe-home-timeline-feedback');
     if(!notice){notice=document.createElement('div');notice.id='fe-home-timeline-feedback';notice.setAttribute('role','status');document.body.append(notice);}
-    notice.style.cssText='position:fixed;bottom:24px;left:16px;right:16px;margin:auto;max-width:620px;z-index:2147483635;padding:14px 18px;border-radius:10px;box-shadow:0 10px 30px #0009;font:600 14px/1.5 system-ui,sans-serif;background:'+(error?'#532c2c':'#173c39')+';border:1px solid '+(error?'#e49c9c':'#5bc6bb')+';color:#fff';
+    notice.style.cssText='position:fixed;bottom:24px;left:16px;right:16px;margin:auto;max-width:620px;z-index:2147483635;padding:14px 18px;border-radius:.3em;box-shadow:0 0 20px rgba(0,0,0,.6);font-weight:500;font-size:14px;line-height:1.5;font-family:inherit;background:'+(error?'#532c2c':'#2a2a2a')+';border:1px solid '+(error?'#e49c9c':'#52c5f0')+';color:#fff';
     notice.textContent=message;
     clearTimeout(homeFeedback.timer);
     homeFeedback.timer=setTimeout(()=>notice.remove(),6500);
@@ -804,6 +819,7 @@
     }
   });
   function mount() {
+    if (!onHomeRoute()) return;
     const auth = credential();
     restore(auth);
     // Hide only the current watch-order show/movie, never an entire franchise.
@@ -818,9 +834,10 @@
     if (!widget) {
       widget = document.createElement('section');
       widget.id = WIDGET_ID;
+      widget.className = 'verticalSection fe-franchise-section';
       widget.setAttribute('aria-label', 'Continue Your Franchises');
     }
-    widget.setAttribute('data-fe-version','0.8.9.15');
+    widget.setAttribute('data-fe-version','0.8.9.16');
     // Jellyfin's home view can destroy and recreate this entire parent.
     // Keep our rendered widget and reattach immediately after the native row.
     if (widget.parentElement !== anchor.parentElement || anchor.nextElementSibling !== widget)
@@ -830,10 +847,16 @@
     if (signature === renderedSignature && widget.childElementCount) return;
     renderedSignature = signature;
     if (activeResumeMenu) activeResumeMenu.close();
-    const heading = document.createElement('h2');
-    heading.textContent = 'Continue Your Franchises';
+    // Reuse Jellyfin Web's own section markup so the title, spacing and
+    // padding match the native Continue Watching / Next Up rows exactly.
+    const heading = document.createElement('div');
+    heading.className = 'sectionTitleContainer sectionTitleContainer-cards padded-left fe-resume-title-row';
+    const sectionTitle = document.createElement('h2');
+    sectionTitle.className = 'sectionTitle sectionTitle-cards';
+    sectionTitle.textContent = 'Continue Your Franchises';
+    heading.append(sectionTitle);
     const grid = document.createElement('div');
-    grid.className = 'fe-resume-grid';
+    grid.className = 'fe-resume-grid padded-left padded-right';
     if (!cards.length) {
       const waiting = document.createElement('div');waiting.className='fe-resume-wait';
       waiting.textContent = auth ? 'Loading your franchise watch orders…' : 'Waiting for your Jellyfin session…';
@@ -966,7 +989,7 @@
   }
 
   async function authenticatedArtwork(route, auth) {
-    if (!/^\/Items\/[a-f\d-]{32,36}\/Images\/(?:Thumb|Backdrop\/0|Primary)\?maxWidth=\d+$/i.test(route))
+    if (!/^\/Items\/[a-f\d-]{32,36}\/Images\/(?:Thumb|Backdrop\/0|Primary)\?maxWidth=\d+(?:&tag=[a-z\d]+)?$/i.test(route))
       return '';
     if (images.has(route)) return images.get(route);
     const pending = fetch(serverPath(route), {
@@ -1015,16 +1038,19 @@
     const result = value.slice(value.lastIndexOf(':') + 1);
     return GUID.test(result) ? result : '';
   }
+  // Jellyfin serves tagged image URLs with long-lived cache headers, so the
+  // same poster is not downloaded again on every Home visit.
+  const imageTag = tag => /^[a-z\d]+$/i.test(tag || '') ? '&tag=' + tag : '';
   function artworkRoute(item) {
     if (!item || !GUID.test(item.Id || '')) return '';
-    if (item.ImageTags?.Thumb) return '/Items/' + item.Id + '/Images/Thumb?maxWidth=800';
-    if (item.BackdropImageTags?.length) return '/Items/' + item.Id + '/Images/Backdrop/0?maxWidth=800';
-    if (item.ImageTags?.Primary) return '/Items/' + item.Id + '/Images/Primary?maxWidth=800';
+    if (item.ImageTags?.Thumb) return '/Items/' + item.Id + '/Images/Thumb?maxWidth=800' + imageTag(item.ImageTags.Thumb);
+    if (item.BackdropImageTags?.length) return '/Items/' + item.Id + '/Images/Backdrop/0?maxWidth=800' + imageTag(item.BackdropImageTags[0]);
+    if (item.ImageTags?.Primary) return '/Items/' + item.Id + '/Images/Primary?maxWidth=800' + imageTag(item.ImageTags.Primary);
     return '';
   }
   function posterRoute(item) {
     if (!item || !GUID.test(item.Id || '') || !item.ImageTags?.Primary) return '';
-    return '/Items/' + item.Id + '/Images/Primary?maxWidth=600';
+    return '/Items/' + item.Id + '/Images/Primary?maxWidth=600' + imageTag(item.ImageTags.Primary);
   }
   function franchiseFor(state, catalog) {
     const nodes = new Map((catalog.nodes || catalog.Nodes || []).map(n => {
@@ -1116,7 +1142,7 @@
     const auth = credential();
     restore(auth);
     scheduleMount();
-    if (!auth || busy || document.hidden || (!force && Date.now() - lastFetch < 10000)) return;
+    if (!auth || busy || document.hidden || !onHomeRoute() || (!force && Date.now() - lastFetch < 10000)) return;
     busy = true; lastFetch = Date.now();
     const startedScope = authScope;
     try {
@@ -1147,11 +1173,11 @@
     } catch (error) {
       // Transient errors must not erase the user's most recent cards. Log only
       // the status/error class (never an auth header, token or user ID).
-      console.warn('[Franchise Explorer 0.8.9.15] Home tracker refresh failed:', error?.message || 'unknown error');
+      console.warn('[Franchise Explorer 0.8.9.16] Home tracker refresh failed:', error?.message || 'unknown error');
     }
     finally { busy = false; }
   }
-  const observer = new MutationObserver(() => { if (cards.length) scheduleMount(); });
+  const observer = new MutationObserver(() => { if (cards.length && onHomeRoute()) scheduleMount(); });
   function start() {
     if (!document.body) return;
     restore(credential());
@@ -1162,7 +1188,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});
   else start();
   setInterval(() => void tick(), 12000);
-  window.addEventListener('hashchange', scheduleMount);
+  window.addEventListener('hashchange', () => { scheduleMount(); void tick(); });
   window.addEventListener('popstate', scheduleMount);
   window.addEventListener('resize', scheduleMount);
   window.addEventListener('orientationchange', scheduleMount);
@@ -1181,8 +1207,8 @@
   'use strict';
   // Older Injector scripts can coexist after an upgrade. A boolean-only
   // guard would silently retain their details-page/autoresume behavior.
-  if(window.__franchiseAutoplayBridgeVersion==='0.8.9.15')return;
-  window.__franchiseAutoplayBridgeVersion='0.8.9.15';
+  if(window.__franchiseAutoplayBridgeVersion==='0.8.9.16')return;
+  window.__franchiseAutoplayBridgeVersion='0.8.9.16';
   window.__franchiseAutoplayBridgeLoaded=true;
   let currentKey='',attempts=0,scheduled=false,routeSettlingSince=0;
   const MAX_ATTEMPTS=36;
@@ -1319,7 +1345,7 @@
     if(!notice){
       notice=document.createElement('div');notice.id='fe-local-playback-notice';
       notice.setAttribute('role','alert');
-      notice.style.cssText='position:fixed;z-index:2147483640;top:75px;left:12px;right:12px;max-width:670px;margin:auto;background:#2b2320;color:#ffdfb3;border:1px solid #d3a04b;border-radius:10px;padding:13px 16px;box-shadow:0 8px 30px #0009;font:14px/1.45 sans-serif';
+      notice.style.cssText='position:fixed;z-index:2147483640;top:75px;left:12px;right:12px;max-width:670px;margin:auto;background:#2b2320;color:#ffdfb3;border:1px solid #d3a04b;border-radius:.3em;padding:13px 16px;box-shadow:0 0 20px rgba(0,0,0,.6);font-size:14px;line-height:1.45;font-family:inherit';
       document.body.appendChild(notice);
     }
     notice.textContent=message;
@@ -1597,7 +1623,7 @@
   // Explicit `play` with position 0 is essential for restart-current: native
   // Jellyfin's Resume action otherwise restores its separate watched offset.
   window.FranchiseExplorerNativePlayback={
-    version:'0.8.9.15',
+    version:'0.8.9.16',
     play(id,options={}){
       if(!/^[a-f0-9-]{32,36}$/i.test(id))return false;
       const container=document.querySelector('.homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
@@ -1760,8 +1786,12 @@
       const localKey='fe-local-follow-v1:'+String(auth.UserId).toLowerCase();
       const owner=JSON.parse(localStorage.getItem(localKey)||'null');
       if(!owner?.rowId||!owner.sessionId||Date.now()-owner.created>86400000)return;
-      const states=await api('/FranchiseExplorer/TimelineState',auth);
-      const state=(states||[]).find(x=>x.rowId===owner.rowId && x.playbackMode==='playing'
+      // Read only the followed row (one small file on the server) rather than
+      // every timeline of this user: this runs every two seconds.
+      let current;
+      try{current=await api('/FranchiseExplorer/TimelineState/'+encodeURIComponent(owner.rowId),auth);}
+      catch(error){if(/HTTP 404/.test(error?.message||''))return;throw error;}
+      const state=[].concat(current||[]).find(x=>x&&x.rowId===owner.rowId && x.playbackMode==='playing'
         && x.sessionId===owner.sessionId && x.queueKeys?.length);
       if(!state?.pendingAutoAdvanceUtc)return;
       console.info('Franchise Explorer: completed timeline entry detected; starting next media',

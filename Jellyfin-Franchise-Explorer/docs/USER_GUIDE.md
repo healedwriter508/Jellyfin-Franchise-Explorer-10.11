@@ -65,7 +65,7 @@ You can use a completely different universe; the screenshots below show one pers
 4. Select the parent franchise again, then repeat for **Phase Two** through **Phase Six**.
 5. Drag groups in the left hierarchy, or use **↑ Move up / ↓ Move down**, to adjust their order. The **Sort position** field is another way to set the relative order.
 
-![Administrator editor with the MCU hierarchy and its six phase subgroups](screenshots/01-franchise-editor.png)
+![Administrator editor with the MCU hierarchy and its six phase subgroups](../../docs/screenshots/01-franchise-editor.png)
 
 ### Step 2 — Add existing titles
 
@@ -94,21 +94,21 @@ Select the franchise or phase, then scroll to **Edit Images**. Upload a **Primar
 
 Click **Open Franchises browser** near the editor's top toolbar. Your new franchise should appear on the main Franchises page, with a poster if artwork is available.
 
-![Example Franchises root with available posters (older screenshot includes preferences that have since moved to the editor)](screenshots/02-franchises-library.png)
+![Example Franchises root with available posters (older screenshot includes preferences that have since moved to the editor)](../../docs/screenshots/02-franchises-library.png)
 
 Click the franchise to see its banner and configured rows.
 
-![Marvel Cinematic Universe detail page with Phases and Collections rows](screenshots/03-marvel-franchise.png)
+![Marvel Cinematic Universe detail page with Phases and Collections rows](../../docs/screenshots/03-marvel-franchise.png)
 
 Scroll to **Chronological Order** to review title order, range labels, and progress. A **Play chronological order** control is available for a populated watch-order row on supported Jellyfin Web installations; test it with a short sample timeline first.
 
-![Chronological order row with films, selected Agent Carter seasons, watched markers, and progress](screenshots/04-chronological-watch-order.png)
+![Chronological order row with films, selected Agent Carter seasons, watched markers, and progress](../../docs/screenshots/04-chronological-watch-order.png)
 
 ### Step 6 — Resume from Jellyfin Web's homepage
 
 After starting a supported chronological watch order, return to Jellyfin Web's homepage. The **Continue Your Franchises** card can show the franchise, current movie/series, next episode, progress, and **Resume Watch Order**.
 
-![Jellyfin homepage with the Franchises tile and an MCU resume card](screenshots/05-jellyfin-home-integration.png)
+![Jellyfin homepage with the Franchises tile and an MCU resume card](../../docs/screenshots/05-jellyfin-home-integration.png)
 
 ## Administrator editor: every control explained
 

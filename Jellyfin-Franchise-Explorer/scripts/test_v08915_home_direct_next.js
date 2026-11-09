@@ -1,4 +1,4 @@
-/* v0.8.9.15: Home resume/artwork and chronological auto-next must stay off Details/Browse. */
+/* v0.8.9.16: Home resume/artwork and chronological auto-next must stay off Details/Browse. */
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -57,7 +57,8 @@ const env={console,Date,location,localStorage,sessionStorage,
   readPlaybackReturn:()=>({returnUrl:home}),
   armPlaybackReturn:()=>{},setTimeout:()=>{},consumeHomeQuickPlay:()=>{},
   api:async endpoint=>endpoint.startsWith('/Sessions?')
-    ? [{Id:'session-1',NowPlayingItem:{Id:previous}}] : [state],
+    ? [{Id:'session-1',NowPlayingItem:{Id:previous}}]
+    : (assert.equal(endpoint,'/FranchiseExplorer/TimelineState/'+encodeURIComponent(rowId),'Auto-next polls only the followed row'),state),
   showLocalNotice:msg=>assert.fail('Auto-next should not fail: '+msg)};
 vm.runInNewContext(script.slice(followStart,followEnd)+'\nglobalThis.runFollow=followLocalTimeline;',env);
 
@@ -105,5 +106,5 @@ vm.runInNewContext(script.slice(consumeStart,consumeEnd)+'\nglobalThis.consume=c
   consumerEnv.location.hash='#/home';
   consumerEnv.consume();
   assert.equal(nativeCalls.length,2);
-  console.log('v0.8.9.15 Home resume, poster orientation, and native chronological next-episode contracts passed.');
+  console.log('v0.8.9.16 Home resume, poster orientation, and native chronological next-episode contracts passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
