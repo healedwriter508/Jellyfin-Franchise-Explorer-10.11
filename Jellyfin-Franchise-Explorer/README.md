@@ -4,7 +4,7 @@ This folder contains the source and test tools for [Jellyfin Franchise Explorer]
 
 - `src/` — C# plugin source and embedded web pages/scripts.
 - `scripts/` — structural checks, browser tests, version and manifest tools.
-- `docs/` — longer references and historical update guides (some are outdated).
+- `docs/` — longer references; `docs/upgrade-notes/` holds historical per-release guides (some are outdated).
 - `examples/` — example configuration data.
 - `CHANGELOG.md` — development history.
 

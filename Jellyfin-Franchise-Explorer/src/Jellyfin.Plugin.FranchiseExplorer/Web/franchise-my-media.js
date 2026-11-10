@@ -115,8 +115,8 @@
   }
 
   function isMyMediaHeading(element) {
-    // This is intentionally English-only until Jellyfin exposes an API for
-    // inserting custom library tiles. Do not infer it from unrelated text.
+    // English heading text is the primary signal; findMyMediaContainer has a
+    // language-independent fallback based on Jellyfin's library-card markup.
     const label = (element.textContent || '').replace(/\s+/g, ' ').trim();
     return label === 'My Media' || label === 'My Media (small)';
   }
@@ -133,8 +133,14 @@
         if (content && content.querySelector('.card, .libraryCard, .homeLibraryTile')) return content;
       }
     }
-    return null;
+    // Other display languages: My Media is the Home row made of library
+    // cards, which Jellyfin Web marks with data-type="CollectionFolder" (or
+    // "UserView") regardless of the translated heading.
+    const libraryCard = document.querySelector(LIBRARY_CARD);
+    const row = libraryCard?.closest('.itemsContainer, emby-itemscontainer, [is="emby-itemscontainer"]');
+    return row && !row.closest('.hide') ? row : null;
   }
+  const LIBRARY_CARD = '.card[data-type="CollectionFolder"]:not(#' + TILE_ID + '),.card[data-type="UserView"]:not(#' + TILE_ID + ')';
 
   function referenceCard(container) {
     return Array.from(container.children).find(child =>
@@ -171,6 +177,8 @@
   function findCollectionsCard(container) {
     for (const card of Array.from(container.children)) {
       if (card.id === TILE_ID || !card.matches?.('.card, .libraryCard, .homeLibraryTile')) continue;
+      // Language-independent: Jellyfin tags the Collections library card.
+      if ((card.getAttribute('data-collectiontype') || '').toLowerCase() === 'boxsets') return card;
       const labels = [card.getAttribute('aria-label'), card.getAttribute('title')];
       card.querySelectorAll('.cardText, .cardText-first, .cardText-primary, .cardText-secondary, .cardTextContainer, .libraryName, span')
         .forEach(el => labels.push(el.textContent));
@@ -478,16 +486,28 @@
     const headings = [...document.querySelectorAll('h1,h2,h3,h4,.sectionTitle')];
     const heading = headings.find(h => (h.textContent || '').trim() === 'Continue Watching')
       || headings.find(h => (h.textContent || '').trim() === 'My Media');
-    return heading?.closest('.verticalSection,.homeSection,section') || heading?.parentElement?.parentElement || null;
+    if (heading) return heading.closest('.verticalSection,.homeSection,section') || heading.parentElement?.parentElement || null;
+    // Other display languages: fall back to Jellyfin Web's markup. Resume and
+    // Next Up rows monitor video playback; My Media is made of library cards.
+    return playbackRowSections()[0] || sectionOf(document.querySelector(
+      '.card[data-type="CollectionFolder"]:not(#franchise-explorer-my-media-tile),.card[data-type="UserView"]')) || null;
+  }
+  function sectionOf(element) {
+    const section = element?.closest('.verticalSection,.homeSection,section');
+    return section && section.id !== WIDGET_ID && !section.closest('.hide') ? section : null;
+  }
+  function playbackRowSections() {
+    return [...new Set([...document.querySelectorAll('[data-monitor*="videoplayback"]')].map(sectionOf).filter(Boolean))];
   }
   function nativeRowSettingKey(auth) {
     return 'fe-show-active-native-rows:' + location.origin + ':' + String(auth.UserId || '').toLowerCase();
   }
   function nativeRowSections() {
     const headings = [...document.querySelectorAll('h1,h2,h3,h4,.sectionTitle')];
-    return headings.filter(h => /^(Continue Watching|Next Up)(?:\s*[›»>→])?$/.test((h.textContent || '').replace(/\s+/g,' ').trim()))
+    const english = headings.filter(h => /^(Continue Watching|Next Up)(?:\s*[›»>→])?$/.test((h.textContent || '').replace(/\s+/g,' ').trim()))
       .map(h => h.closest('.verticalSection,.homeSection,section') || h.parentElement?.parentElement)
       .filter(Boolean);
+    return english.length ? english : playbackRowSections();
   }
   function nativeCardId(card) {
     const candidates = [card, card.querySelector('[data-id],[data-item-id],[data-itemid]')].filter(Boolean);

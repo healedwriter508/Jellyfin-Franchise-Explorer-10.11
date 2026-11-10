@@ -7,6 +7,7 @@ This experimental source release targets Jellyfin 12.2. Use GitHub Actions to bu
 - **Less load on the Jellyfin server.** Playback-progress events only touch timelines that are actually armed or playing; everyone else's playback skips disk access. Routine playback log lines are now Debug level.
 - **Less work in every browser tab.** The Home integration is idle outside Jellyfin Home, the injected script no longer carries an inline base64 image, auto-next polls a single timeline row, and artwork is cached.
 - **A Jellyfin-native look.** Jellyfin's accent colour, greys, font and control shapes are used throughout the Franchises browser, Home card, menus, dialogs and settings editor.
+- **Works with non-English Jellyfin.** The Home tile and Continue Your Franchises no longer depend on English headings such as "My Media".
 - The Injector script ID is now `jellyfin-franchise-explorer-my-media-v08916`. The plugin retires the v0.8.9.15 script after registering the new one.
 
 ## Publish and check

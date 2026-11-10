@@ -81,6 +81,7 @@ jobs:
         run: |
           python3 scripts/test_my_media_tile_browser.py
           python3 scripts/test_browse_live_mock.py
+          python3 scripts/test_v08916_localized_home_browser.py
           python3 scripts/test_my_media_tile_resize.py
           python3 scripts/test_v085_native_card.py
           python3 scripts/test_v085_card_progress.py

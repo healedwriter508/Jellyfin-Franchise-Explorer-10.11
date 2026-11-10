@@ -15,7 +15,12 @@
 - Continue Your Franchises uses Jellyfin Web's native section/title markup, so it lines up with Continue Watching and Next Up; cards gain a hover play overlay.
 - Menus, dialogs and notices match Jellyfin's action sheets and dialogs. The Franchises browser gets a Jellyfin-style header with icons, and the settings editor matches the dashboard controls.
 
+**Other languages**
+- The My Media tile, Continue Your Franchises placement and the Continue Watching / Next Up filter no longer require Jellyfin's display language to be English. When the English headings are absent they fall back to Jellyfin Web's own markup (library cards, the Collections card type, and playback-monitored rows). The plugin's own labels are still English.
+
 **Tidy-up**
+- Removed seven browser test scripts that were never run in CI and asserted behaviour replaced by later releases; added a non-English Home browser test.
+- Moved historical per-release upgrade notes into `docs/upgrade-notes/` and replaced the outdated duplicate user guide with a pointer to the current one.
 - Removed the unused `MediaReference` model and duplicated screenshots under `Jellyfin-Franchise-Explorer/docs`.
 - The Catalog API reports the real plugin version instead of a stale hard-coded `0.8.2.0`.
 - CI now runs every offline contract test plus the Home browser test.
