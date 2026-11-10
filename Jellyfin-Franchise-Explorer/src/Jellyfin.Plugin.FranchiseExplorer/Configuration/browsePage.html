@@ -540,7 +540,8 @@ h1{font-size:clamp(1.65rem,3.6vw,3.6rem);line-height:1.13;margin:9px 0 8px;lette
     $('sort').value='custom';
     if(!(await session())){status('Sign in to Jellyfin Web on this device first, then return to Franchises.');$('empty').classList.remove('hidden');text($('empty'),'No Jellyfin Web login session was found for this server.');return;}
     try{
-      catalog=await api('/FranchiseExplorer/Catalog');
+      const lowerKeys=v=>!v||typeof v!=='object'?v:Array.isArray(v)?v.map(lowerKeys):Object.fromEntries(Object.entries(v).map(([k,val])=>[k[0].toLowerCase()+k.slice(1),lowerKeys(val)]));
+      catalog=lowerKeys(await api('/FranchiseExplorer/Catalog'));
       if(!Array.isArray(catalog.nodes)||!Array.isArray(catalog.links))throw new Error('Unexpected catalog format.');
       // Ensure identifiers are structurally safe before constructing any URL.
       catalog.nodes=catalog.nodes.filter(n=>safeGuid(n.id));

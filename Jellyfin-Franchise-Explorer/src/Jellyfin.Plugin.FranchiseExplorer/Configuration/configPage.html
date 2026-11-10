@@ -268,7 +268,7 @@
 <div data-role="content" class="fx-wrap">
   <div class="fx-heading">
     <div>
-      <h1>Franchise Explorer <small>v0.8.9.15 preview</small></h1>
+      <h1>Franchise Explorer <small>v0.8.9.17-port (Jellyfin 10.11)</small></h1>
       <p class="fx-muted">Organize virtual franchises, eras, phases and viewing references without moving media files.</p>
     </div>
   </div>
@@ -525,6 +525,7 @@
   }
   requestEditorFit();
   page.addEventListener('pageshow',requestEditorFit);
+  page.addEventListener('viewshow',requestEditorFit);
   const validGuid = s => /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
   const guid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
   const emptyArt = () => ({ PrimaryUrl:'', BackdropUrl:'', LogoUrl:'', ThumbUrl:'', BannerUrl:'' });
@@ -743,7 +744,7 @@
         if(typeof ApiClient.getItem==='function') {
           try{return await ApiClient.getItem(userId,id);}catch(_){/* fallback to REST read */}
         }
-        if(typeof ApiClient.getJSON==='function')return await ApiClient.getJSON(ApiClient.getUrl('Items/'+encodeURIComponent(id)));
+        if(typeof ApiClient.getJSON==='function')return await ApiClient.getJSON(ApiClient.getUrl('Items/'+encodeURIComponent(id),userId?{userId}:undefined));
         throw new Error('Jellyfin item lookup is unavailable.');
       })().catch(()=>null);
       mediaCache.set(id.toLowerCase(),promise);
@@ -1519,8 +1520,11 @@
   });
 
   try { byId('fx-open-browser').href=ApiClient.getUrl('FranchiseExplorer/Browse'); } catch(_) {}
-  page.addEventListener('pageshow',load);
-  if(!page.classList.contains('hide')) load();
+  let lastPageLoadAt=0;
+  const loadOnShow=()=>{if(Date.now()-lastPageLoadAt<300)return;lastPageLoadAt=Date.now();load();};
+  page.addEventListener('pageshow',loadOnShow);
+  page.addEventListener('viewshow',loadOnShow);
+  if(!page.classList.contains('hide')) loadOnShow();
 })();
 </script>
 </div></body></html>
