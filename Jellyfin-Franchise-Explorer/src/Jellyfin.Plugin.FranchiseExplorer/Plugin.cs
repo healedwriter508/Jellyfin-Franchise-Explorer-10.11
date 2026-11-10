@@ -37,6 +37,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo
             {
                 Name = Name,
+                DisplayName = Name,
                 EmbeddedResourcePath = typeof(Plugin).Namespace + ".Configuration.configPage.html"
             }
         };

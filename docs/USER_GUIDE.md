@@ -1,6 +1,6 @@
 # Franchise Explorer user guide
 
-**Applies to experimental v0.8.9.16 on Jellyfin 12.2.** This illustrated guide covers installation, watching and resuming a franchise, the Home card menu, configuring virtual groups and browse rows, selecting TV episode ranges, and artwork. Screenshots show one user's Marvel Cinematic Universe library; **the plugin does not supply these movies, shows, images, or watch orders**.
+**Applies to experimental v0.8.9.1018 on Jellyfin 12.2.** This illustrated guide covers installation, watching and resuming a franchise, the Home card menu, configuring virtual groups and browse rows, selecting TV episode ranges, and artwork. Screenshots show one user's Marvel Cinematic Universe library; **the plugin does not supply these movies, shows, images, or watch orders**.
 
 > [!IMPORTANT]
 > Back up Jellyfin and Franchise Explorer's configuration **and uploaded artwork** before experimenting. Franchises are virtual references to existing Jellyfin items; they do **not** move, rename, copy, or delete your media. Chronological playback is experimental and not guaranteed on every Jellyfin client.
@@ -50,7 +50,7 @@ The **Group type** label helps organize browsing; naming a group **Collection** 
    ```
 
 3. Under **Plugins → Catalog**, install **Franchise Explorer** and a **Jellyfin 12-compatible JavaScript Injector**. Restart the Jellyfin service after installing or updating.
-4. In **Dashboard → Plugins → JS Injector**, expand **Plugin Scripts**. Confirm an enabled **Franchise Explorer - My Media tile** script. For v0.8.9.16, its script ID is `jellyfin-franchise-explorer-my-media-v08916`.
+4. In **Dashboard → Plugins → JS Injector**, expand **Plugin Scripts**. Confirm an enabled **Franchise Explorer - My Media tile** script. For v0.8.9.1018, its script ID is `jellyfin-franchise-explorer-my-media-v0891018`.
 5. **Do not manually add a duplicate script** if the plugin-owned one is present. Hard-refresh Jellyfin Web (**Ctrl+Shift+R** on a desktop) after the restart.
 
 The JavaScript Injector companion is required for the **My Media** tile, homepage resume card, and tile menu in Jellyfin Web. The standalone Franchises browser and administrator editor are provided by Franchise Explorer itself. The companion does not add a Franchises category to native TV/mobile applications.
@@ -434,7 +434,7 @@ These features are injected into **Jellyfin Web**. Native Jellyfin Android TV, R
 | --- | --- |
 | **No Franchises tile on Home** | Install/enable JavaScript Injector; confirm one current plugin-owned My Media script, restart Jellyfin, hard-refresh the browser. |
 | **No homepage resume card** | Start a supported chronological watch order and check that the injected script loaded; not all clients support it. |
-| **Resume Watch Order opens the franchise browser or chronological modal first** | The intended v0.8.9.16 Home behavior is direct video playback. Check the installed DLL and injected script version, disable duplicate older scripts, restart Jellyfin and hard-refresh, then try again. |
+| **Resume Watch Order opens the franchise browser or chronological modal first** | The intended v0.8.9.1018 Home behavior is direct video playback. Check the installed DLL and injected script version, disable duplicate older scripts, restart Jellyfin and hard-refresh, then try again. |
 | **Next episode goes to a title Details page instead of playing** | The intended behavior is direct next-item playback. This remains experimental: check whether the media is playable from native Jellyfin Web, note whether the preceding item ended naturally or was manually skipped, and include your client/plugin versions in a bug report. **Details** should be an explicit menu choice. |
 | **The three dots are not visible on desktop** | Hover or keyboard-focus the Franchises tile. The control is intentionally hidden at rest. |
 | **Cannot find the Hide active titles switch** | Open **Dashboard → Plugins → Franchise Explorer** and look near the top for **Playback & Home preferences**. |
@@ -442,7 +442,7 @@ These features are injected into **Jellyfin Web**. Native Jellyfin Android TV, R
 | **The franchise page has an empty row** | Select the correct group in the editor, check that the row includes matching groups/media, then save. An empty row does not imply missing Jellyfin files. |
 | **Art is missing or wrong** | Verify the relevant group/slot, inheritance source, and any custom upload. **Restore inherited** affects only that slot. |
 | **A backup import did not apply** | Import loads an unsaved workspace; click **Save plugin configuration** after reviewing it. |
-| **A web page still shows an old UI** | After installing the compiled plugin update, restart Jellyfin and hard-refresh the browser. In the developer console, `window.__franchiseExplorerUiVersion` should display `0.8.9.16` for this release. |
+| **A web page still shows an old UI** | After installing the compiled plugin update, restart Jellyfin and hard-refresh the browser. In the developer console, `window.__franchiseExplorerUiVersion` should display `0.8.9.1018` for this release. |
 
 ### Limitations and safety
 
@@ -451,4 +451,4 @@ These features are injected into **Jellyfin Web**. Native Jellyfin Android TV, R
 - The JSON backup and the plugin's uploaded images are **separate**. Retain both before upgrading or removing the plugin.
 - All group/row/media edits require a final **Save plugin configuration**. Viewer preferences in plugin settings are stored separately in that user's browser.
 
-For release-specific details, see [v0.8.9.16 upgrade instructions](../Jellyfin-Franchise-Explorer/docs/UPGRADE_V08916.md).
+For release-specific details, see [v0.8.9.1018 upgrade instructions](../Jellyfin-Franchise-Explorer/docs/UPGRADE_V0891018.md).

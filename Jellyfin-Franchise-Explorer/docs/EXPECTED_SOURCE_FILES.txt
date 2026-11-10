@@ -53,7 +53,7 @@ Jellyfin-Franchise-Explorer/docs/upgrade-notes/UPGRADE_V08912.md
 Jellyfin-Franchise-Explorer/docs/upgrade-notes/UPGRADE_V08913.md
 Jellyfin-Franchise-Explorer/docs/upgrade-notes/UPGRADE_V08914.md
 Jellyfin-Franchise-Explorer/docs/upgrade-notes/UPGRADE_V08915.md
-Jellyfin-Franchise-Explorer/docs/UPGRADE_V08916.md
+Jellyfin-Franchise-Explorer/docs/UPGRADE_V0891018.md
 Jellyfin-Franchise-Explorer/examples/virtual-franchises-demo.json
 Jellyfin-Franchise-Explorer/scripts/Apply-Repository-Upgrade.ps1
 Jellyfin-Franchise-Explorer/scripts/check_repo.py
@@ -101,8 +101,8 @@ Jellyfin-Franchise-Explorer/scripts/test_v08911_direct_playback.js
 Jellyfin-Franchise-Explorer/scripts/test_v08912_player_and_dialog.js
 Jellyfin-Franchise-Explorer/scripts/test_v08913_home_return_and_filter.js
 Jellyfin-Franchise-Explorer/scripts/test_v08915_home_direct_next.js
-Jellyfin-Franchise-Explorer/scripts/test_v08916_localized_home_browser.py
-Jellyfin-Franchise-Explorer/scripts/test_v08916_performance_contract.py
+Jellyfin-Franchise-Explorer/scripts/test_v0891018_localized_home_browser.py
+Jellyfin-Franchise-Explorer/scripts/test_v0891018_performance_contract.py
 Jellyfin-Franchise-Explorer/scripts/ui_contract_tests.js
 Jellyfin-Franchise-Explorer/src/Jellyfin.Plugin.FranchiseExplorer/Api/FranchiseArtworkController.cs
 Jellyfin-Franchise-Explorer/src/Jellyfin.Plugin.FranchiseExplorer/Api/FranchiseBrowseController.cs

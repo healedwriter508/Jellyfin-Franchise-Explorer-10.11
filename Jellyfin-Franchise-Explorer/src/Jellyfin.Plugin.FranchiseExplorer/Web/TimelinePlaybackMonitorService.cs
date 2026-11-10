@@ -132,7 +132,9 @@ public sealed class TimelinePlaybackMonitorService : IHostedService
 
     private void Dispatch(PlaybackProgressEventArgs args, bool completed, bool activePlaybackEvent)
     {
-        var userId = args.Session?.UserId ?? Guid.Empty;
+        var userId = args.Session?.UserId is Guid sessionUserId && sessionUserId != Guid.Empty
+            ? sessionUserId
+            : (args.Users is { Count: > 0 } users ? users[0].Id : Guid.Empty);
         var sessionId = args.Session?.Id;
         var itemId = args.Item?.Id ?? Guid.Empty;
         if (userId == Guid.Empty || itemId == Guid.Empty || string.IsNullOrEmpty(sessionId)) return;

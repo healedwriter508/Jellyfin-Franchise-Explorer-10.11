@@ -1,4 +1,6 @@
-## v0.8.9.16 — Performance, tidy-up, and a Jellyfin-native look (experimental)
+## v0.8.9.1018 — Performance, tidy-up, and a Jellyfin-native look (Jellyfin 10.11 port)
+
+Built on the 0.8.9.1017 port (Jellyfin 10.11.11, .NET 9); keeps its poster-collage tile and playback-warning fix. CI workflows now build and package the `net9.0` output.
 
 **Performance**
 - Server: playback events (fired every few seconds for every stream on the server) no longer read every timeline file for the user. An in-memory index of armed/playing rows lets ordinary playback skip the global lock and all disk access.

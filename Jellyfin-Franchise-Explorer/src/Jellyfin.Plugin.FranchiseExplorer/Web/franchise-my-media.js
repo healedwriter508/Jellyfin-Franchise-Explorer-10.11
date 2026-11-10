@@ -1,5 +1,5 @@
 /*
- * Jellyfin Franchise Explorer — opt-in Jellyfin Web integration (v0.8.9.16).
+ * Jellyfin Franchise Explorer — opt-in Jellyfin Web integration (v0.8.9.1018).
  * Adds ONE visual link in the existing "My Media" row. It does not create a
  * Jellyfin library, alter user preferences, or modify the server's media.
  * Requires a compatible JavaScript injector to run in jellyfin-web.
@@ -9,7 +9,7 @@
   'use strict';
 
   // Programmatic registration plus a manual fallback must not create two observers.
-  window.__franchiseExplorerUiVersion = '0.8.9.16';
+  window.__franchiseExplorerUiVersion = '0.8.9.1018';
   if (window.__franchiseExplorerMyMediaTileLoaded) return;
   window.__franchiseExplorerMyMediaTileLoaded = true;
   // Replaced with the cached /FranchiseExplorer/TileArt route by the plugin
@@ -18,10 +18,20 @@
 
   const TILE_ID = 'franchise-explorer-my-media-tile';
   const STYLE_ID = 'franchise-explorer-my-media-style';
+  const SAFE_GUID = /^[a-f\d]{32}$|^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
+  const IMAGE_KEYS = { Primary: 'primaryUrl', Backdrop: 'backdropUrl', Logo: 'logoUrl', Thumb: 'thumbUrl', Banner: 'bannerUrl' };
   let queued = false;
   let observedCard = null;
   let observedResize = null;
   let activeSettingsMenu = null;
+  // Module-level promise cache so re-renders and navigation do not refetch the collage.
+  let collagePromise = null;
+
+  function basePrefix() {
+    const pathname = window.location.pathname || '';
+    const match = pathname.match(/^(.*?)\/web(?:\/|$)/i);
+    return match ? match[1] : '';
+  }
 
   function serverBase() {
     const match = (window.location.pathname || '').match(/^(.*?)\/web(?:\/|$)/i);
@@ -34,16 +44,201 @@
   }
   function browseUrl() {
     // Keep Jellyfin base-path prefixes (e.g. /jellyfin/web/index.html).
-    const pathname = window.location.pathname || '';
-    const match = pathname.match(/^(.*?)\/web(?:\/|$)/i);
-    const base = match ? match[1] : '';
-    return `${base}/FranchiseExplorer/Browse`;
+    return `${basePrefix()}/FranchiseExplorer/Browse`;
   }
 
   function settingsUrl() {
-    const match = (window.location.pathname || '').match(/^(.*?)\/web(?:\/|$)/i);
-    const base = match ? match[1] : '';
-    return base + '/web/index.html#/configurationpage?name=Franchise%20Explorer';
+    return basePrefix() + '/web/index.html#/configurationpage?name=Franchise%20Explorer';
+  }
+
+  function safeGuid(value) {
+    return SAFE_GUID.test(String(value || ''));
+  }
+
+  function lowerKeys(value) {
+    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.map(lowerKeys);
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k[0].toLowerCase() + k.slice(1)] = lowerKeys(v);
+    }
+    return out;
+  }
+
+  function getTileAuth() {
+    const ac = typeof window !== 'undefined' ? window.ApiClient : null;
+    let token = '';
+    let userId = '';
+    let serverAddress = '';
+    let serverId = '';
+    if (ac) {
+      try { if (typeof ac.accessToken === 'function') token = ac.accessToken() || ''; } catch (_) {}
+      try { if (typeof ac.getCurrentUserId === 'function') userId = ac.getCurrentUserId() || ''; } catch (_) {}
+      try { if (typeof ac.serverAddress === 'function') serverAddress = ac.serverAddress() || ''; } catch (_) {}
+      try { if (typeof ac.serverId === 'function') serverId = ac.serverId() || ''; } catch (_) {}
+      if (!token && ac._serverInfo?.AccessToken) token = ac._serverInfo.AccessToken;
+      if (!userId && ac._serverInfo?.UserId) userId = ac._serverInfo.UserId;
+      if (!serverAddress && ac._serverAddress) serverAddress = ac._serverAddress;
+    }
+    if (!token || !userId) {
+      try {
+        const servers = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}').Servers || [];
+        const matches = servers.filter(s => s && s.AccessToken && s.UserId);
+        const chosen = matches.find(s => (serverId && s.Id === serverId) || ['ManualAddress', 'LocalAddress', 'RemoteAddress', 'LastConnectionAddress'].some(k => {
+          try { return s[k] && new URL(s[k]).origin === window.location.origin; } catch (_) { return false; }
+        })) || (matches.length === 1 ? matches[0] : null);
+        if (chosen) {
+          if (!token) token = chosen.AccessToken || '';
+          if (!userId) userId = chosen.UserId || '';
+          if (!serverAddress) serverAddress = chosen.ManualAddress || chosen.LocalAddress || chosen.RemoteAddress || chosen.LastConnectionAddress || '';
+        }
+      } catch (_) {}
+    }
+    return token ? { token, userId, serverAddress } : null;
+  }
+
+  function resolveApiUrl(path, auth) {
+    if (!path) return '';
+    const prefix = basePrefix();
+    let clean = String(path).trim();
+    if (prefix && clean.startsWith(prefix + '/')) {
+      clean = clean.slice(prefix.length);
+    }
+    const rel = clean.replace(/^\/+/, '');
+    const ac = typeof window !== 'undefined' ? window.ApiClient : null;
+    if (ac && typeof ac.getUrl === 'function') {
+      try {
+        const u = ac.getUrl(rel);
+        if (u) return u;
+      } catch (_) {}
+    }
+    const addr = (ac && typeof ac.serverAddress === 'function' ? ac.serverAddress() : '') ||
+      ((window.location.protocol !== 'http:' && window.location.protocol !== 'https:' && auth?.serverAddress) ? auth.serverAddress : '');
+    if (addr) {
+      return String(addr).replace(/\/+$/, '') + '/' + rel;
+    }
+    return `${prefix}/${rel}`;
+  }
+
+  function authHeaders(auth) {
+    return { Authorization: 'MediaBrowser Token="' + auth.token + '"' };
+  }
+
+  async function secureImage(path, auth, blobCache) {
+    if (!path || !auth?.token) return '';
+    let raw = String(path).trim();
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw);
+        const base = new URL(resolveApiUrl('/', auth) || '/', window.location.href);
+        if (u.origin !== window.location.origin && u.origin !== base.origin) return '';
+        raw = u.pathname + u.search;
+      } catch (_) {
+        return '';
+      }
+    }
+    const prefix = basePrefix();
+    let route = (prefix && raw.startsWith(prefix + '/')) ? raw.slice(prefix.length) : raw;
+    route = route.startsWith('/') ? route : '/' + route;
+    if (!/^\/(FranchiseExplorer\/Artwork\/|Items\/)/i.test(route)) return '';
+    const key = resolveApiUrl(route, auth);
+    if (!key) return '';
+    if (!blobCache.has(key)) {
+      const load = fetch(key, { headers: authHeaders(auth) })
+        .then(r => { if (!r.ok) throw new Error('no image'); return r.blob(); })
+        .then(blob => (blob && blob.type && blob.type.startsWith('image/')) ? URL.createObjectURL(blob) : '')
+        .catch(() => '');
+      blobCache.set(key, load);
+    }
+    return await blobCache.get(key);
+  }
+
+  // Tagged image URLs get long-lived cache headers from Jellyfin.
+  const tagged = tag => /^[a-z\d]+$/i.test(typeof tag === 'string' ? tag : '') ? '&tag=' + tag : '';
+  function imagePath(item, type) {
+    const id = item && (item.Id || item.id);
+    if (!safeGuid(id)) return '';
+    const backdrops = item.BackdropImageTags || item.backdropImageTags;
+    if (type === 'Backdrop' && Array.isArray(backdrops) && backdrops.length) {
+      return '/Items/' + id + '/Images/Backdrop/0?maxWidth=1100' + tagged(backdrops[0]);
+    }
+    const tags = item.ImageTags || item.imageTags || {};
+    const hasTag = tags[type] || tags[type[0].toLowerCase() + type.slice(1)] || (type === 'Primary' && (item.PrimaryImageTag || item.primaryImageTag));
+    if (!hasTag) return '';
+    return '/Items/' + id + '/Images/' + type + '?maxWidth=' + (type === 'Primary' ? '420' : '1100') + tagged(hasTag);
+  }
+
+  async function fetchCollagePosters(auth) {
+    const catalogUrl = resolveApiUrl('/FranchiseExplorer/Catalog', auth);
+    if (!catalogUrl) return [];
+    const response = await fetch(catalogUrl, { headers: authHeaders(auth), cache: 'no-store' });
+    if (!response.ok) return [];
+    const catalog = lowerKeys(await response.json());
+    if (!catalog || !Array.isArray(catalog.nodes)) return [];
+    const nodes = catalog.nodes.filter(n => n && safeGuid(n.id));
+    const allLinks = Array.isArray(catalog.links)
+      ? catalog.links.filter(l => l && safeGuid(l.nodeId) && safeGuid(l.itemId))
+      : [];
+    const itemCache = new Map();
+    const blobCache = new Map();
+    const getItem = async id => {
+      if (!safeGuid(id)) return null;
+      const key = String(id).toLowerCase();
+      if (!itemCache.has(key)) {
+        const query = auth.userId ? '?userId=' + encodeURIComponent(auth.userId) : '';
+        const url = resolveApiUrl('/Items/' + encodeURIComponent(key) + query, auth);
+        const promise = fetch(url, { headers: authHeaders(auth), cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+          .then(x => (x && safeGuid(x.Id || x.id)) ? x : null)
+          .catch(() => null);
+        itemCache.set(key, promise);
+      }
+      return await itemCache.get(key);
+    };
+    const nodeById = id => nodes.find(n => String(n.id).toLowerCase() === String(id || '').toLowerCase()) || null;
+    const links = id => allLinks.filter(l => String(l.nodeId).toLowerCase() === String(id || '').toLowerCase());
+    const compare = (a, b) => (+a.sortOrder || +a.position || 0) - (+b.sortOrder || +b.position || 0) ||
+      String(a.name || a.title || '').localeCompare(String(b.name || b.title || ''));
+    const nodeArtwork = async (n, kind = 'Primary', seen = new Set()) => {
+      if (!n) return '';
+      const nid = String(n.id).toLowerCase();
+      if (seen.has(nid)) return '';
+      seen.add(nid);
+      const own = (n.artwork || {})[IMAGE_KEYS[kind]] || '';
+      const custom = await secureImage(own, auth, blobCache);
+      if (custom) return custom;
+      if (safeGuid(n.collectionId)) {
+        const collection = await getItem(n.collectionId);
+        const inherited = await secureImage(imagePath(collection, kind), auth, blobCache);
+        if (inherited) return inherited;
+      }
+      if (n.parentId) {
+        const parentArt = await nodeArtwork(nodeById(n.parentId), kind, seen);
+        if (parentArt) return parentArt;
+      }
+      for (const link of links(n.id).slice(0, 5)) {
+        const item = await getItem(link.itemId);
+        const art = await secureImage(imagePath(item, kind), auth, blobCache);
+        if (art) return art;
+      }
+      return '';
+    };
+    const topNodes = nodes.filter(n => !String(n.parentId || '').trim()).sort(compare);
+    const posters = [];
+    for (const node of topNodes) {
+      if (posters.length >= 6) break;
+      const artUrl = await nodeArtwork(node, 'Primary');
+      if (artUrl) posters.push(artUrl);
+    }
+    return posters;
+  }
+
+  function getCollagePosters() {
+    if (collagePromise) return collagePromise;
+    const auth = getTileAuth();
+    if (!auth) return Promise.resolve([]);
+    collagePromise = fetchCollagePosters(auth).catch(() => []);
+    return collagePromise;
   }
 
   function ensureStyle() {
@@ -66,8 +261,36 @@
         background:rgba(10,10,10,.27);backdrop-filter:blur(2px);
         pointer-events:none;
       }
+      #${TILE_ID} .fe-tile-collage {
+        position:absolute;inset:0;z-index:0;
+        display:grid;width:100%;height:100%;
+        gap:2px;background:#121212;
+        overflow:hidden;box-sizing:border-box;
+        align-content:center;justify-content:center;
+        pointer-events:none;
+      }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-1 { grid-template-columns:minmax(0,1fr); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-cols-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-rows-1 { grid-template-rows:minmax(0,1fr); }
+      #${TILE_ID} .fe-tile-collage.fe-collage-rows-2 { grid-template-rows:repeat(2,minmax(0,1fr)); }
+      #${TILE_ID} .fe-tile-poster-cell {
+        position:relative;width:100%;height:100%;
+        min-width:0;min-height:0;aspect-ratio:2 / 3;
+        overflow:hidden;background:#1c1c1c;display:block;
+      }
+      #${TILE_ID} .fe-tile-poster {
+        width:100%;height:100%;aspect-ratio:2 / 3;
+        object-fit:cover;object-position:center top;
+        display:block;border:0;margin:0;padding:0;
+      }
+      #${TILE_ID} .fe-tile-collage-overlay {
+        position:absolute;inset:0;z-index:1;
+        background:linear-gradient(180deg,rgba(2,10,16,.18) 0%,rgba(2,10,16,.48) 52%,rgba(0,7,13,.88) 100%);
+        pointer-events:none;
+      }
       #${TILE_ID} .fe-tile-art-title {
-        display:block!important;position:absolute;z-index:1;
+        display:block!important;position:absolute;z-index:2;
         left:7px;right:7px;top:50%;bottom:auto;transform:translateY(-50%);
         margin:0!important;padding:0!important;text-align:center;color:white;
         font-weight:bold;font-size:clamp(18px,1.75vw,30px);line-height:1.2;font-family:inherit;
@@ -202,6 +425,91 @@
     }
   }
 
+  function applyFallbackArt(art) {
+    if (!art) return;
+    art.classList.remove('fe-collage-art');
+    art.querySelector('.fe-tile-collage')?.remove();
+    art.querySelector('.fe-tile-collage-overlay')?.remove();
+    if (TILE_ART_URL.startsWith('/FranchiseExplorer/')) {
+      art.classList.add('fe-cinematic-art');
+      // Cached image endpoint; the base gradient stays as the last layer in
+      // case the image is unavailable.
+      art.style.backgroundImage='linear-gradient(0deg,rgba(0,0,0,.72),transparent 68%),url("'+serverBase()+TILE_ART_URL+'"),linear-gradient(130deg,#1f1f1f 0%,#383838 55%,#1c1c1c 100%)';
+    } else {
+      art.classList.remove('fe-cinematic-art');
+      art.style.backgroundImage = '';
+    }
+  }
+
+  function renderCollageArt(art, posters) {
+    if (!art || !Array.isArray(posters) || !posters.length) {
+      applyFallbackArt(art);
+      return;
+    }
+    const items = posters.slice(0, 6);
+    art.classList.remove('fe-cinematic-art');
+    art.classList.add('fe-collage-art');
+    art.style.backgroundImage = 'none';
+    art.querySelector('.fe-tile-collage')?.remove();
+    art.querySelector('.fe-tile-collage-overlay')?.remove();
+
+    const grid = document.createElement('span');
+    const updateLayout = () => {
+      const count = grid.querySelectorAll('.fe-tile-poster-cell').length;
+      if (!count) {
+        applyFallbackArt(art);
+        return;
+      }
+      const cols = count === 1 ? 1 : (count <= 3 ? count : 3);
+      const rows = count <= 3 ? 1 : 2;
+      grid.className = `fe-tile-collage fe-collage-count-${count} fe-collage-cols-${cols} fe-collage-rows-${rows}`;
+      grid.setAttribute('data-poster-count', String(count));
+    };
+
+    for (const src of items) {
+      const cell = document.createElement('span');
+      cell.className = 'fe-tile-poster-cell';
+      const img = document.createElement('img');
+      img.className = 'fe-tile-poster';
+      img.alt = '';
+      img.decoding = 'async';
+      img.addEventListener('error', () => {
+        cell.remove();
+        updateLayout();
+      });
+      img.src = src;
+      cell.appendChild(img);
+      grid.appendChild(cell);
+    }
+
+    const overlay = document.createElement('span');
+    overlay.className = 'fe-tile-collage-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+
+    updateLayout();
+    art.prepend(grid, overlay);
+  }
+
+  function decorateTileWithCollage(art) {
+    if (!art || art.dataset.feCollagePending === '1' || art.dataset.feCollageApplied) return;
+    if (!getTileAuth() && !collagePromise) return;
+    art.dataset.feCollagePending = '1';
+    void getCollagePosters().then(posters => {
+      art.dataset.feCollagePending = '0';
+      if (Array.isArray(posters) && posters.length) {
+        art.dataset.feCollageApplied = '1';
+        renderCollageArt(art, posters);
+      } else {
+        art.dataset.feCollageApplied = 'fallback';
+        applyFallbackArt(art);
+      }
+    }).catch(() => {
+      art.dataset.feCollagePending = '0';
+      art.dataset.feCollageApplied = 'fallback';
+      applyFallbackArt(art);
+    });
+  }
+
   function makeTile(reference) {
     // Clone the genuine Jellyfin library card (prefer Collections, otherwise
     // Movies/Shows) so native theme card sizing, spacing, and aspect ratio apply
@@ -222,7 +530,7 @@
       }
     }
     tile.id = TILE_ID;
-    tile.setAttribute('data-fe-version','0.8.9.16');
+    tile.setAttribute('data-fe-version','0.8.9.1018');
     tile.setAttribute('aria-label','Open Franchises');
     tile.setAttribute('href',browseUrl());
     // Native actions from a cloned Collections card cannot operate on the
@@ -231,11 +539,7 @@
     const imageHost=(tile.querySelector('.cardImageContainer')||tile.querySelector('.poster')||tile.querySelector('.cardImage')||tile.querySelector('.cardScalable'));
     const art=document.createElement('span');art.className='fe-tile-art';
     art.innerHTML='<span class="fe-tile-art-title">Franchises</span>';
-    if (TILE_ART_URL.startsWith('/FranchiseExplorer/')) {
-      art.classList.add('fe-cinematic-art');
-      // Keep the base gradient as the last layer in case the image is unavailable.
-      art.style.backgroundImage='linear-gradient(0deg,rgba(0,0,0,.72),transparent 68%),url("'+serverBase()+TILE_ART_URL+'"),linear-gradient(130deg,#1f1f1f 0%,#383838 55%,#1c1c1c 100%)';
-    }
+    applyFallbackArt(art);
     if(imageHost){
       // Remove cloned Collections artwork and its inline background image,
       // but preserve native Jellyfin sizing scaffolding around this host.
@@ -249,9 +553,10 @@
     }
     // Remove any stale native title labels (including theme-specific plain spans).
     for(const child of tile.querySelectorAll('span')){
-      if(child!==imageHost && !imageHost?.contains(child) && child.childElementCount===0 &&
+      if(child!==imageHost && !imageHost?.contains(child) && child!==art && !art.contains(child) && child.childElementCount===0 &&
         (child.textContent||'').trim() === (reference.getAttribute('title')||'Collections'))child.remove();
     }
+    decorateTileWithCollage(art);
     const label=tile.querySelector('.cardText-first,.cardText-primary,.cardText,.libraryName');
     if(label && !imageHost?.contains(label)){
       label.textContent='Franchises';
@@ -352,7 +657,8 @@
       if (sourceScalable) observedResize.observe(sourceScalable);
     }
     tile.setAttribute('href',browseUrl());
-    tile.setAttribute('data-fe-version','0.8.9.16');
+    tile.setAttribute('data-fe-version','0.8.9.1018');
+    decorateTileWithCollage(tile.querySelector('.fe-tile-art'));
   }
 
   function schedule() {
@@ -382,7 +688,7 @@
   window.addEventListener('resize', schedule);
 })();
 
-/* v0.8.9.16 — Per-user franchise resume cards and in-place playback shortcuts on Jellyfin Web's home.
+/* v0.8.9.1018 — Per-user franchise resume cards and in-place playback shortcuts on Jellyfin Web's home.
  * Jellyfin regularly replaces the home DOM, including after a refresh and
  * client-side navigation. Reattach the same widget rather than waiting for the
  * next API poll, and keep a short session-scoped cache for hard refreshes.
@@ -392,16 +698,16 @@
   'use strict';
   // An older Injector script may still be running. Never let its shared v1
   // marker block the newer in-place playback actions from initializing.
-  if (window.__franchiseTimelineHomeVersion === '0.8.9.16') return;
-  window.__franchiseTimelineHomeVersion = '0.8.9.16';
+  if (window.__franchiseTimelineHomeVersion === '0.8.9.1018') return;
+  window.__franchiseTimelineHomeVersion = '0.8.9.1018';
   window.__franchiseTimelineHomeLoaded = true;
   const WIDGET_ID = 'franchise-timeline-resume';
   // Versioned styles take precedence if an earlier Injector script left its
   // stylesheet in the page before the new registration initialized.
-  const STYLE_ID = 'franchise-timeline-resume-style-v08916';
+  const STYLE_ID = 'franchise-timeline-resume-style-v0891018';
   const NATIVE_HIDE_STYLE_ID = 'fe-native-franchise-row-filter-style';
   const NATIVE_HIDE_CLASS = 'fe-native-franchise-row-hidden';
-  const CACHE_PREFIX = 'fe-franchise-home-v08916:';
+  const CACHE_PREFIX = 'fe-franchise-home-v0891018:';
   const MAX_CARDS = 8;
   const phonePortrait = () => window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches;
   const GUID = /^[a-f0-9]{32}$|^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
@@ -581,7 +887,7 @@
       // Legacy Injector registrations may leave a second tracker with the
       // exact same DOM id. Hide it so its native confirm/resume menu cannot
       // be clicked accidentally after the upgraded script becomes active.
-      '#'+WIDGET_ID+':not([data-fe-version="0.8.9.16"]){display:none!important}',
+      '#'+WIDGET_ID+':not([data-fe-version="0.8.9.1018"]){display:none!important}',
       '#'+WIDGET_ID+'{box-sizing:border-box;width:100%;min-width:0;color:inherit;margin-bottom:1.8em}',
       '#'+WIDGET_ID+' h2{margin:.6em 0 .5em}',
       '#'+WIDGET_ID+' .fe-resume-title-row{display:flex;align-items:center}',
@@ -627,8 +933,8 @@
   // TimelineManager renders the SAME list as Browse, but Jellyfin Home does
   // not load Browse's stylesheet. The modal is appended to document.body.
   function ensureHomeTimelineStyle() {
-    if (document.getElementById('fe-home-timeline-dialog-style-v08916')) return;
-    const style=document.createElement('style');style.id='fe-home-timeline-dialog-style-v08916';
+    if (document.getElementById('fe-home-timeline-dialog-style-v0891018')) return;
+    const style=document.createElement('style');style.id='fe-home-timeline-dialog-style-v0891018';
     style.textContent=[
       '.timeline-dialog-mask{position:fixed;inset:0;z-index:2147483630;background:rgba(0,0,0,.7);display:grid;place-items:center;padding:12px;overscroll-behavior:contain}',
       '.timeline-dialog-mask.fe-home-chronological-modal .timeline-dialog{width:min(830px,100%);max-height:min(88dvh,810px)}',
@@ -857,7 +1163,7 @@
       widget.className = 'verticalSection fe-franchise-section';
       widget.setAttribute('aria-label', 'Continue Your Franchises');
     }
-    widget.setAttribute('data-fe-version','0.8.9.16');
+    widget.setAttribute('data-fe-version','0.8.9.1018');
     // Jellyfin's home view can destroy and recreate this entire parent.
     // Keep our rendered widget and reattach immediately after the native row.
     if (widget.parentElement !== anchor.parentElement || anchor.nextElementSibling !== widget)
@@ -1193,7 +1499,7 @@
     } catch (error) {
       // Transient errors must not erase the user's most recent cards. Log only
       // the status/error class (never an auth header, token or user ID).
-      console.warn('[Franchise Explorer 0.8.9.16] Home tracker refresh failed:', error?.message || 'unknown error');
+      console.warn('[Franchise Explorer 0.8.9.1018] Home tracker refresh failed:', error?.message || 'unknown error');
     }
     finally { busy = false; }
   }
@@ -1227,14 +1533,14 @@
   'use strict';
   // Older Injector scripts can coexist after an upgrade. A boolean-only
   // guard would silently retain their details-page/autoresume behavior.
-  if(window.__franchiseAutoplayBridgeVersion==='0.8.9.16')return;
-  window.__franchiseAutoplayBridgeVersion='0.8.9.16';
+  if(window.__franchiseAutoplayBridgeVersion==='0.8.9.1018')return;
+  window.__franchiseAutoplayBridgeVersion='0.8.9.1018';
   window.__franchiseAutoplayBridgeLoaded=true;
   let currentKey='',attempts=0,scheduled=false,routeSettlingSince=0;
   const MAX_ATTEMPTS=36;
   function params(){
     const hash=location.hash||'';
-    if(!/^#\/?details\?/i.test(hash))return null;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(hash))return null;
     const query=hash.slice(hash.indexOf('?')+1);
     const p=new URLSearchParams(query);
     if(p.get('feAutoPlay')!=='1'||!/^[a-f0-9-]{32,36}$/i.test(p.get('id')||''))return null;
@@ -1271,7 +1577,7 @@
     try{
       const all=JSON.parse(localStorage.getItem('jellyfin_credentials')||'{}').Servers||[];
       return all.find(x=>x.UserId&&x.AccessToken&&
-        [x.ManualAddress,x.LocalAddress,x.RemoteAddress].some(a=>{
+        [x.ManualAddress,x.LocalAddress,x.RemoteAddress,x.LastConnectionAddress].some(a=>{
           try{return new URL(a).origin===location.origin;}catch(_){return false;}
         }))||(all.length===1?all[0]:null);
     }catch(_){return null;}
@@ -1295,7 +1601,7 @@
     return path.startsWith('/FranchiseExplorer/TimelineState')?timelineResponse(value):value;
   }
   function itemMatch(a,b){return String(a||'').replace(/-/g,'').toLowerCase()===String(b||'').replace(/-/g,'').toLowerCase();}
-  function deviceId(){return localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
+  function deviceId(){return (typeof window!=='undefined'&&typeof window.ApiClient?.deviceId==='function'&&window.ApiClient.deviceId())||localStorage.getItem('_deviceId2')||localStorage.getItem('_deviceId')||'';}
   const playbackReturnKey='fe-return-after-player-v1';
   function readPlaybackReturn(){
     try{
@@ -1312,7 +1618,7 @@
       const root=((location.pathname||'').match(/^(.*?)\/web(?:\/|$)/i)||[])[1]||'';
       const fallback=origin+root+'/web/#/home';
       const url=new URL(source||location.href,location.href);
-      const isPlayerOrDetails=/^#\/(?:details|video|playback)(?:\?|\/|$)/i.test(url.hash);
+      const isPlayerOrDetails=/^#!?\/?(?:details|video|playback)(?:\.html)?(?:\?|\/|$)/i.test(url.hash);
       sessionStorage.setItem(playbackReturnKey,JSON.stringify({version:1,id,
         returnUrl:url.origin===origin&&!isPlayerOrDetails?url.href:fallback,
         userId:String(auth?.UserId||'').toLowerCase(),created:Date.now(),startedAt:0}));
@@ -1339,14 +1645,14 @@
     const marker=readPlaybackReturn();if(!marker?.startedAt)return;
     const auth=localCredentials();
     if(marker.userId!==String(auth?.UserId||'').toLowerCase())return;
-    if(!/^#\/?details\?/i.test(location.hash||''))return;
+    if(!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
     const route=new URLSearchParams(location.hash.split('?')[1]||'');
     if(route.get('feAutoPlay')==='1'||!itemMatch(route.get('id'),marker.id))return;
     returning=true;
     setTimeout(()=>{
       returning=false;
       const current=readPlaybackReturn();
-      if(!current?.startedAt||current.id!==marker.id||!/^#\/?details\?/i.test(location.hash||''))return;
+      if(!current?.startedAt||current.id!==marker.id||!/^#!?\/?details(?:\.html)?\?/i.test(location.hash||''))return;
       const visibleVideo=[...document.querySelectorAll('video')].some(v=>!v.paused&&!v.ended&&v.getClientRects().length);
       if(visibleVideo)return;
       try{
@@ -1643,10 +1949,10 @@
   // Explicit `play` with position 0 is essential for restart-current: native
   // Jellyfin's Resume action otherwise restores its separate watched offset.
   window.FranchiseExplorerNativePlayback={
-    version:'0.8.9.16',
+    version:'0.8.9.1018',
     play(id,options={}){
       if(!/^[a-f0-9-]{32,36}$/i.test(id))return false;
-      const container=document.querySelector('.homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
+      const container=document.querySelector('#homeTab:not(.hide) .itemsContainer, .tabContent.is-active .itemsContainer, .homeSectionsContainer .itemsContainer:not(.hide), .homeTab:not(.hide) .itemsContainer, .homeTab:not(.hide) .itemsContainerWithBorders, .homeTab .itemsContainer, .itemsContainer:not(.hide)');
       if(!container)return false;
       const wrapper=document.createElement('div');
       // Jellyfin shortcuts.onClick looks up the nearest `.itemAction` from
@@ -1693,11 +1999,28 @@
       // shortcut listener. Keep Home visible and report the problem instead
       // of silently navigating through the item's Details page.
       const pathname=location.pathname,hash=location.hash;
-      setTimeout(()=>{
-        const latest=localIntent(localCredentials());
-        if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return;
-        const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
-        if(playing)return;
+      setTimeout(async()=>{
+        const shouldAbort=()=>{
+          const latest=localIntent(localCredentials());
+          if(!latest||!itemMatch(latest.expectedId,id)||location.pathname!==pathname||location.hash!==hash)return true;
+          if(document.hidden)return true;
+          const playing=[...document.querySelectorAll('video')].some(v=>!v.paused&&v.readyState>=2);
+          return playing;
+        };
+        if(shouldAbort())return;
+        try{
+          const serverPlaying=async()=>{
+            const auth=localCredentials();
+            if(!auth?.UserId)return false;
+            const sessions=await api('/Sessions?ControllableByUserId='+encodeURIComponent(auth.UserId),auth);
+            return (sessions||[]).some(s=>itemMatch(s.UserId,auth.UserId)&&itemMatch(s.NowPlayingItem?.Id,id));
+          };
+          if(await serverPlaying())return;
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          if(shouldAbort())return;
+          if(await serverPlaying())return;
+        }catch(_){}
+        if(shouldAbort())return;
         console.warn('Franchise Explorer: the native Jellyfin shortcut did not start video playback.');
         showLocalNotice('Could not start this item directly. Stay on Home and retry, or use Details if you prefer to inspect the title. The chronological timeline was not advanced.',13000);
       },12000);
@@ -1726,10 +2049,10 @@
       showLocalNotice('The next chronological item could not start directly. You are still on Jellyfin Home; use Resume Watch Order to retry.',13000);
       return;
     }
-    if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+    if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
       // A closing Jellyfin player can briefly restore the previous details
       // route. Only move to Home for OUR pending, expiring playback request.
-      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#\/?details\?/i.test(location.hash||'')){
+      if(age>500 && Date.now()-nextHomeRecoveryAt>1000 && /^#!?\/?details(?:\.html)?\?/i.test(location.hash||'')){
         nextHomeRecoveryAt=Date.now();
         location.replace(location.origin+location.pathname+location.search+'#/home');
       }
@@ -1852,7 +2175,7 @@
         homeOnly:true,type:Number(state.queueEpisodes?.[index])>0?'Episode':'Movie',
         returnUrl,subtitleEnabled:!!owner.subtitleEnabled}));
       lastFollowKey=key; // Only mark queued after the new intent can be recovered.
-      if(!/^#\/?home(?:\?|$)/i.test(location.hash||'')){
+      if(!/^#!?\/?home(?:\.html)?(?:\?|$)/i.test(location.hash||'')){
         if(location.protocol==='http:'||location.protocol==='https:')location.assign(homeUrl);
         else location.hash='#/home'; // about:blank offline browser regression harness
       }

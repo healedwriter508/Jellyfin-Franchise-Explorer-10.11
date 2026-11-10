@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -95,7 +96,8 @@ public sealed class FranchiseTimelineController : ControllerBase
 
     private bool TryIdentity(out Guid userId)
     {
-        var claim = User.FindFirst("Jellyfin-UserId")?.Value;
+        var claim = User.FindFirst("Jellyfin-UserId")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out userId) && userId != Guid.Empty;
     }
 
@@ -122,11 +124,12 @@ public sealed class FranchiseTimelineController : ControllerBase
         => state.ArmedUtc.HasValue && state.ArmedUtc.Value <= DateTimeOffset.UtcNow.AddSeconds(5)
             && state.ArmedUtc.Value >= DateTimeOffset.UtcNow.AddMinutes(-2);
 
-    // Jellyfin 12.2 configures its MVC Ok(...) JSON serializer to emit
-    // PascalCase properties, even though the on-disk serializer uses Web
-    // camelCase. The browser expects rowId, completedKeys and the pending
-    // handoff marker. Serialize all timeline responses explicitly so the
-    // host's unrelated global MVC settings cannot silently break playback.
+    // Jellyfin 10.11 / 12.x configures its MVC Ok(...) JSON serializer with
+    // JsonDefaults.Options (PropertyNamingPolicy = null), emitting PascalCase
+    // for C# DTOs even though the on-disk serializer uses Web camelCase. The
+    // browser expects rowId, completedKeys and the pending handoff marker.
+    // Serialize all timeline responses explicitly so the host's unrelated
+    // global MVC settings cannot silently break playback.
     private IActionResult TimelineJson<T>(T state)
     {
         Response.Headers["Cache-Control"] = "no-store";

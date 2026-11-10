@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v0.8.9.16 performance and Jellyfin-theme contracts (static; live Jellyfin still required)."""
+"""v0.8.9.1018 performance and Jellyfin-theme contracts (static; live Jellyfin still required)."""
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -48,4 +48,4 @@ for name, text in [('home', home_js), ('engine', engine_js), ('browse', browse_h
 assert 'sectionTitle sectionTitle-cards' in home_js
 assert 'Jellyfin-native theme layer' in browse_html and 'Jellyfin-native theme layer' in config_html
 assert 'font-family:inherit' in home_js and 'Arial' not in home_js
-print('v0.8.9.16 performance and Jellyfin-theme contracts passed (static; live Jellyfin still required).')
+print('v0.8.9.1018 performance and Jellyfin-theme contracts passed (static; live Jellyfin still required).')
